@@ -20,10 +20,10 @@
       <p class="sub">سجّل دخولك للمتابعة</p>
 
       <label for="username">اسم المستخدم</label>
-      <input id="username" autocomplete="username" required>
+      <input id="username" autocomplete="username" required dir="ltr">
 
       <label for="password">كلمة المرور</label>
-      <input id="password" type="password" autocomplete="current-password" required>
+      <input id="password" type="password" autocomplete="current-password" required dir="ltr">
 
       <div id="loginError" class="error"></div>
       <button id="loginBtn" class="btn primary" type="submit">دخول</button>
@@ -38,47 +38,88 @@
       <button id="logoutBtn" class="btn">خروج</button>
     </header>
 
-    <main>
-      <!-- ===== أوامر الشراء ===== -->
-      <div class="page-head">
-        <div>
-          <h1>أوامر الشراء</h1>
-          <p class="sub">إدخال ومتابعة أوامر الشراء واعتمادها.</p>
-        </div>
-        <div class="actions">
-          <button id="refreshBtn" class="btn">تحديث</button>
-          <button id="newOrderBtn" class="btn primary">+ أمر شراء جديد</button>
-        </div>
-      </div>
+    <div class="layout">
+      <!-- القائمة: تُبنى حسب صلاحيات كل موظف -->
+      <nav id="sideNav" class="side-nav" aria-label="الصفحات"></nav>
 
-      <div id="stats" class="stats"></div>
+      <main>
+        <!-- موظف بدون أي صلاحية -->
+        <div id="noAccess" class="card empty-page hide">
+          <h2>لا توجد صفحات متاحة لك بعد</h2>
+          <p class="sub">لم تُمنح لحسابك أي صلاحيات. تواصل مع مدير المنصة.</p>
+        </div>
 
-      <div class="card">
-        <div class="toolbar">
-          <input id="search" placeholder="ابحث برقم الأمر أو المورد أو الموديل">
-          <select id="filterDept"></select>
-          <select id="filterStatus">
-            <option value="">كل الحالات</option>
-            <option>معتمد</option>
-            <option>بانتظار الاعتماد</option>
-          </select>
-        </div>
-        <div class="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>رقم الأمر</th><th>التاريخ</th><th>القسم</th><th>المورد</th>
-                <th>البنود</th><th>الكمية</th><th>الحاويات</th><th>القيمة</th><th>الحالة</th>
-              </tr>
-            </thead>
-            <tbody id="ordersBody"></tbody>
-          </table>
-        </div>
-      </div>
-    </main>
+        <!-- ===== صفحة: أوامر الشراء ===== -->
+        <section id="page-orders" class="page hide">
+          <div class="page-head">
+            <div>
+              <h1>أوامر الشراء</h1>
+              <p id="ordersSub" class="sub"></p>
+            </div>
+            <div class="actions">
+              <button id="refreshBtn" class="btn">تحديث</button>
+              <button id="newOrderBtn" class="btn primary">+ أمر شراء جديد</button>
+            </div>
+          </div>
+
+          <div id="stats" class="stats"></div>
+
+          <div class="card">
+            <div class="toolbar">
+              <input id="search" placeholder="ابحث برقم الأمر أو المورد أو الموديل">
+              <select id="filterDept"></select>
+              <select id="filterStatus">
+                <option value="">كل الحالات</option>
+                <option>معتمد</option>
+                <option>بانتظار الاعتماد</option>
+              </select>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>رقم الأمر</th><th>التاريخ</th><th>القسم</th><th>المورد</th>
+                    <th>البنود</th><th>الكمية</th><th>الحاويات</th><th>القيمة</th><th>الحالة</th>
+                  </tr>
+                </thead>
+                <tbody id="ordersBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== صفحة: الموظفون والصلاحيات (للمدير فقط) ===== -->
+        <section id="page-users" class="page hide">
+          <div class="page-head">
+            <div>
+              <h1>الموظفون والصلاحيات</h1>
+              <p class="sub">أضف حسابات الفريق، وحدّد لكل موظف الصفحات اللي تظهر له.</p>
+            </div>
+            <div class="actions">
+              <button id="usersRefreshBtn" class="btn">تحديث</button>
+              <button id="newUserBtn" class="btn primary">+ موظف جديد</button>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>الاسم</th><th>اسم المستخدم</th><th>النوع</th><th>القسم</th>
+                    <th>الصفحات المسموحة</th><th>الحالة</th><th>آخر دخول</th>
+                  </tr>
+                </thead>
+                <tbody id="usersBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
   </div>
 
-  <!-- ===== نافذة أمر الشراء (إضافة / عرض / تعديل) ===== -->
+  <!-- ===== نافذة أمر الشراء ===== -->
   <dialog id="orderDialog">
     <form id="orderForm">
       <div class="dlg-head">
@@ -139,10 +180,58 @@
     </form>
   </dialog>
 
+  <!-- ===== نافذة الموظف ===== -->
+  <dialog id="userDialog" class="narrow">
+    <form id="userForm">
+      <div class="dlg-head">
+        <h2 id="uTitle"></h2>
+        <button type="button" class="btn" data-close>إغلاق</button>
+      </div>
+
+      <div class="dlg-body">
+        <div class="grid two">
+          <div><label for="u_name">الاسم *</label><input id="u_name" required></div>
+          <div><label for="u_username">اسم المستخدم *</label><input id="u_username" required dir="ltr" autocomplete="off" placeholder="ali"></div>
+          <div><label for="u_password" id="uPassLabel">كلمة المرور *</label><input id="u_password" type="password" dir="ltr" autocomplete="new-password"></div>
+          <div>
+            <label for="u_role">نوع الحساب</label>
+            <select id="u_role">
+              <option value="user">موظف — حسب الصلاحيات</option>
+              <option value="admin">مدير — كل الصلاحيات</option>
+            </select>
+          </div>
+          <div id="uDeptWrap">
+            <label for="u_dept">القسم</label>
+            <select id="u_dept"></select>
+          </div>
+          <div class="check">
+            <label><input type="checkbox" id="u_active"> الحساب فعّال</label>
+          </div>
+        </div>
+
+        <div id="uPermsWrap">
+          <h3 class="section-title">الصفحات والصلاحيات</h3>
+          <p class="sub small">الموظف يشوف في قائمته الصفحات المسموحة له فقط.</p>
+          <div id="uPerms" class="perm-list"></div>
+        </div>
+        <p id="uAdminNote" class="note hide">المدير يشوف كل الصفحات، ويقدر يضيف الموظفين ويعدّل صلاحياتهم.</p>
+        <p id="uMeta" class="meta"></p>
+      </div>
+
+      <div class="dlg-foot">
+        <div id="uError" class="error"></div>
+        <button type="button" id="uDeleteBtn" class="btn danger">حذف الحساب</button>
+        <button type="submit" id="uSaveBtn" class="btn primary">حفظ</button>
+      </div>
+    </form>
+  </dialog>
+
   <div id="toast" class="toast" role="status"></div>
 
   <script src="config.js"></script>
   <script src="api.js"></script>
   <script src="app.js"></script>
+  <script src="orders.js"></script>
+  <script src="users.js"></script>
 </body>
 </html>

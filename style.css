@@ -144,3 +144,62 @@ table.items .w-desc { min-width: 200px; }
   main { padding: 16px; }
   .dlg-body { padding: 16px; }
 }
+
+/* ===== التخطيط: القائمة الجانبية + المحتوى ===== */
+.layout { display: flex; align-items: flex-start; min-height: calc(100vh - 65px); }
+.layout main { flex: 1; min-width: 0; margin: 0; max-width: none; }
+.layout main > * { max-width: 1240px; margin-inline: auto; }
+
+.side-nav {
+  width: 220px; flex: none; position: sticky; top: 0;
+  padding: 20px 12px; display: flex; flex-direction: column; gap: 4px;
+}
+.side-nav button {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  border: 0; background: none; padding: 10px 12px; border-radius: 10px;
+  font-weight: 500; text-align: right; cursor: pointer; color: var(--mute);
+}
+.side-nav button:hover { background: var(--panel); color: var(--ink); }
+.side-nav button.active { background: var(--acc-soft); color: var(--acc); }
+.side-nav svg { width: 20px; height: 20px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+
+/* موظف عنده صفحة وحدة: بدون قائمة، شاشته مباشرة */
+body.single-page .side-nav { display: none; }
+
+.empty-page { padding: 40px 24px; text-align: center; margin-top: 40px; }
+.empty-page h2 { margin: 0 0 6px; }
+
+/* ===== نافذة الموظف ===== */
+dialog.narrow { width: min(680px, calc(100% - 24px)); }
+.grid.two { grid-template-columns: 1fr 1fr; }
+.check { display: flex; align-items: flex-end; padding-bottom: 8px; }
+.check label { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 15px; margin: 0; cursor: pointer; }
+.check input { width: 18px; height: 18px; margin: 0; }
+.section-title { margin: 24px 0 2px; font-size: 16px; }
+.small { font-size: 13px; }
+.perm-list { border: 1px solid var(--line); border-radius: 12px; margin-top: 10px; }
+.perm-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.perm-row:last-child { border-bottom: 0; }
+.perm-row b { font-weight: 500; }
+.perm-row select { width: 220px; }
+.note { background: var(--acc-soft); color: var(--acc); border-radius: 10px; padding: 10px 14px; margin: 20px 0 0; }
+
+.tag.gray { background: var(--bg); color: var(--mute); border: 1px solid var(--line); }
+.tag.off { background: var(--bad-soft); color: var(--bad); }
+.tags { display: flex; flex-wrap: wrap; gap: 4px; white-space: normal; }
+#usersBody tr[data-user] { cursor: pointer; }
+#usersBody tr[data-user]:hover { background: var(--acc-soft); }
+input:disabled { cursor: not-allowed; }
+
+/* الجوال: القائمة تصير شريط أفقي فوق */
+@media (max-width: 800px) {
+  .layout { display: block; }
+  .side-nav {
+    position: static; width: auto; flex-direction: row; overflow-x: auto;
+    padding: 8px 12px; gap: 6px; background: var(--panel); border-bottom: 1px solid var(--line);
+  }
+  .side-nav button { width: auto; white-space: nowrap; padding: 8px 12px; }
+  .grid.two { grid-template-columns: 1fr; }
+  .perm-row { flex-direction: column; align-items: stretch; gap: 6px; }
+  .perm-row select { width: 100%; }
+}

@@ -30,10 +30,15 @@ const API = {
 
   token() { return sessionStorage.getItem('token') || ''; },
 
-  // الحسابات
+  // الدخول
   login(username, password) { return this.call('login', { username, password }); },
   me(token)                 { return this.call('me', { token }); },
   logout(token)             { return this.call('logout', { token }); },
+
+  // الموظفون (للمدير)
+  listUsers()          { return this.call('listUsers',  { token: this.token() }); },
+  saveUser(user)       { return this.call('saveUser',   { token: this.token(), user }); },
+  deleteUser(username) { return this.call('deleteUser', { token: this.token(), username }); },
 
   // أوامر الشراء
   listOrders()     { return this.call('listOrders',   { token: this.token() }); },
