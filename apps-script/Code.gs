@@ -1,18 +1,33 @@
 /**
  * منصة العمل — الخادم
- * الخطوة 5: أوامر الشراء
+ * الخطوة 7: الموظفون والصلاحيات
  */
 
-const USERS_SHEET = 'الموظفون';
-const USER_HEADERS = ['username', 'name', 'passwordHash', 'salt', 'role', 'active', 'createdAt'];
-const ROLES = ['admin', 'employee', 'viewer'];
 const SESSION_HOURS = 6;
 const SESSION_PREFIX = 'SESSION_';
 
-/** تعريف جداول البيانات — كل قسم جديد نضيفه هنا */
+/**
+ * صفحات المنصة ومستويات الصلاحية المتاحة لكل صفحة.
+ * none = لا يظهر، view = عرض فقط، edit = إضافة وتعديل، full = كامل (اعتماد وحذف)
+ * المدير له كل الصلاحيات تلقائيًا. كل صفحة جديدة نضيفها هنا.
+ */
+const PAGES = {
+  orders: ['none', 'view', 'edit', 'full']
+};
+const LEVEL_RANK = { none: 0, view: 1, edit: 2, full: 3 };
+
+/** تعريف جداول البيانات */
 const TABLES = {
+  users: {
+    sheet: 'الموظفون',
+    key: 'username',
+    headers: ['username', 'name', 'passwordHash', 'salt', 'role', 'active', 'createdAt', 'dept', 'perms', 'lastLogin'],
+    json: ['perms'],
+    numbers: []
+  },
   orders: {
     sheet: 'أوامر الشراء',
+    key: 'id',
     headers: ['id', 'poNo', 'date', 'department', 'supplier', 'currency', 'incoterm', 'payMethod',
               'depositPct', 'notes', 'status', 'items', 'totalQty', 'totalValue',
               'createdBy', 'createdAt', 'updatedBy', 'updatedAt', 'approvedBy', 'approvedAt'],
@@ -39,10 +54,14 @@ function doPost(e) {
     const data = JSON.parse((e && e.postData && e.postData.contents) || '{}');
 
     switch (data.action) {
-      // الحسابات
+      // الدخول
       case 'login':        return json_(login_(data.username, data.password));
       case 'me':           return json_(me_(data.token));
       case 'logout':       return json_(logout_(data.token));
+      // الموظفون (للمدير فقط)
+      case 'listUsers':    return json_(listUsers_(data));
+      case 'saveUser':     return json_(saveUser_(data));
+      case 'deleteUser':   return json_(deleteUser_(data));
       // أوامر الشراء
       case 'listOrders':   return json_(listOrders_(data));
       case 'saveOrder':    return json_(saveOrder_(data));
@@ -56,48 +75,269 @@ function doPost(e) {
 }
 
 /* =========================================
+   الصلاحيات
+========================================= */
+
+function isAdmin_(user) {
+  return user.role === 'admin';
+}
+
+/** مستوى صلاحية المستخدم على صفحة */
+function level_(user, page) {
+  if (isAdmin_(user)) return 'full';
+  return (user.perms && user.perms[page]) || 'none';
+}
+
+function requirePage_(user, page, need) {
+  if (LEVEL_RANK[level_(user, page)] < LEVEL_RANK[need]) {
+    throw new Error('ليس لديك صلاحية لهذه العملية');
+  }
+}
+
+function requireAdmin_(user) {
+  if (!isAdmin_(user)) throw new Error('هذه العملية للمدير فقط');
+}
+
+/** الموظف المرتبط بقسم لا يتعامل إلا مع بيانات قسمه */
+function deptAllowed_(user, dept) {
+  return isAdmin_(user) || !user.dept || user.dept === dept;
+}
+
+/* =========================================
+   الدخول والجلسات
+========================================= */
+
+function login_(username, password) {
+  password = String(password || '');
+  if (!cleanUsername_(username) || !password) throw new Error('أدخل اسم المستخدم وكلمة المرور');
+
+  const user = getUser_(username);
+  if (!user || !sameText_(hash_(password, user.salt), user.passwordHash)) {
+    throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
+  }
+  if (!user.active) throw new Error('هذا الحساب موقوف، تواصل مع المدير');
+
+  const token = Utilities.getUuid() + Utilities.getUuid();
+  const session = { username: user.username, expiresAt: Date.now() + SESSION_HOURS * 3600 * 1000 };
+  CacheService.getScriptCache().put(SESSION_PREFIX + token, JSON.stringify(session), SESSION_HOURS * 3600);
+
+  withLock_(() => {
+    const fresh = getUser_(user.username);
+    fresh.lastLogin = nowText_();
+    writeRecord_('users', storedUser_(fresh));
+  });
+
+  return { success: true, token: token, user: publicUser_(user) };
+}
+
+function me_(token) {
+  return { success: true, user: publicUser_(requireUser_(token)) };
+}
+
+function logout_(token) {
+  if (token) CacheService.getScriptCache().remove(SESSION_PREFIX + token);
+  return { success: true };
+}
+
+/** يتحقق من الجلسة ويعيد المستخدم بصلاحياته الحالية من الشيت */
+function requireUser_(token) {
+  token = String(token || '');
+  const raw = token ? CacheService.getScriptCache().get(SESSION_PREFIX + token) : null;
+  if (!raw) throw new Error('انتهت الجلسة، سجّل الدخول مجددًا');
+
+  const session = JSON.parse(raw);
+  const user = Date.now() < session.expiresAt ? getUser_(session.username) : null;
+  if (!user || !user.active) {
+    CacheService.getScriptCache().remove(SESSION_PREFIX + token);
+    throw new Error('انتهت الجلسة، سجّل الدخول مجددًا');
+  }
+  return user;
+}
+
+/* =========================================
+   الموظفون
+========================================= */
+
+function listUsers_(data) {
+  requireAdmin_(requireUser_(data.token));
+  const users = readAll_('users').map(normUser_).map(publicUser_)
+    .sort((a, b) => (b.role === 'admin') - (a.role === 'admin') || a.name.localeCompare(b.name, 'ar'));
+  return { success: true, users: users };
+}
+
+function saveUser_(data) {
+  const me = requireUser_(data.token);
+  requireAdmin_(me);
+  const input = data.user || {};
+  const isNew = input.isNew === true;
+  const username = cleanUsername_(input.username);
+  const name = String(input.name || '').trim();
+  const password = String(input.password || '');
+  const role = input.role === 'admin' ? 'admin' : 'user';
+  const dept = role === 'admin' ? '' : String(input.dept || '').trim().slice(0, 60);
+  const active = input.active !== false;
+
+  if (!name) throw new Error('أدخل اسم الموظف');
+  if (isNew && !/^[a-z0-9._-]{3,30}$/.test(username)) {
+    throw new Error('اسم المستخدم: حروف إنجليزية صغيرة أو أرقام فقط، من 3 إلى 30 حرفًا');
+  }
+  if (isNew && password.length < 8) throw new Error('كلمة المرور 8 أحرف على الأقل');
+  if (!isNew && password && password.length < 8) throw new Error('كلمة المرور الجديدة 8 أحرف على الأقل');
+
+  // الصلاحيات: فقط الصفحات والمستويات المعروفة
+  const perms = {};
+  if (role !== 'admin') {
+    Object.keys(PAGES).forEach(page => {
+      const v = input.perms && input.perms[page];
+      perms[page] = PAGES[page].indexOf(v) >= 0 ? v : 'none';
+    });
+  }
+
+  return withLock_(() => {
+    const all = readAll_('users').map(normUser_);
+    const existing = all.find(u => u.username === username);
+
+    if (isNew && existing) throw new Error('اسم المستخدم ' + username + ' مستخدم مسبقًا');
+    if (!isNew && !existing) throw new Error('الموظف غير موجود');
+
+    if (!isNew && existing.username === me.username && (role !== 'admin' || !active)) {
+      throw new Error('لا يمكنك إلغاء صلاحية المدير أو إيقاف حسابك أنت');
+    }
+
+    const user = existing || { username: username, createdAt: nowText_(), lastLogin: '' };
+    Object.assign(user, { name: name, role: role, dept: dept, perms: perms, active: active });
+    if (password) {
+      user.salt = Utilities.getUuid();
+      user.passwordHash = hash_(password, user.salt);
+    }
+
+    const after = all.filter(u => u.username !== username).concat(user);
+    if (!after.some(u => u.role === 'admin' && u.active)) {
+      throw new Error('لازم يبقى مدير واحد فعّال على الأقل');
+    }
+
+    writeRecord_('users', storedUser_(user));
+    return { success: true, user: publicUser_(user), message: isNew ? 'تم إنشاء حساب ' + name : 'تم حفظ بيانات ' + name };
+  });
+}
+
+function deleteUser_(data) {
+  const me = requireUser_(data.token);
+  requireAdmin_(me);
+  const username = cleanUsername_(data.username);
+  if (username === me.username) throw new Error('لا يمكنك حذف حسابك أنت');
+
+  return withLock_(() => {
+    const all = readAll_('users').map(normUser_);
+    if (!all.some(u => u.username === username)) throw new Error('الموظف غير موجود');
+    if (!all.some(u => u.username !== username && u.role === 'admin' && u.active)) {
+      throw new Error('لازم يبقى مدير واحد فعّال على الأقل');
+    }
+    tableSheet_('users').deleteRow(findRow_('users', username));
+    return { success: true, message: 'تم حذف الحساب' };
+  });
+}
+
+function getUser_(username) {
+  username = cleanUsername_(username);
+  if (!username) return null;
+  const u = readAll_('users').find(x => x.username.toLowerCase() === username);
+  return u ? normUser_(u) : null;
+}
+
+/** يوحّد شكل بيانات الموظف (يدعم الحسابات القديمة) */
+function normUser_(u) {
+  return {
+    username: String(u.username).toLowerCase(),
+    name: String(u.name || u.username),
+    passwordHash: String(u.passwordHash || ''),
+    salt: String(u.salt || ''),
+    role: u.role === 'admin' ? 'admin' : 'user',
+    active: String(u.active).toUpperCase() === 'TRUE',
+    createdAt: String(u.createdAt || ''),
+    dept: String(u.dept || ''),
+    perms: u.perms && !Array.isArray(u.perms) ? u.perms : {},
+    lastLogin: String(u.lastLogin || '')
+  };
+}
+
+/** ما يُحفظ في الشيت */
+function storedUser_(u) {
+  return Object.assign({}, u, { active: u.active ? 'TRUE' : 'FALSE' });
+}
+
+/** ما يُرسل للواجهة — بدون كلمة المرور المشفرة */
+function publicUser_(u) {
+  return {
+    username: u.username, name: u.name, role: u.role, dept: u.dept, perms: u.perms,
+    active: u.active, createdAt: u.createdAt, lastLogin: u.lastLogin
+  };
+}
+
+function createFirstAdmin_(username, name, password) {
+  username = cleanUsername_(username);
+  name = String(name || '').trim();
+  password = String(password || '');
+  if (!/^[a-z0-9._-]{3,30}$/.test(username)) {
+    throw new Error('اسم المستخدم: حروف إنجليزية صغيرة أو أرقام فقط، من 3 إلى 30 حرفًا');
+  }
+  if (!name) throw new Error('أدخل الاسم');
+  if (password.length < 8) throw new Error('كلمة المرور 8 أحرف على الأقل');
+
+  const salt = Utilities.getUuid();
+  writeRecord_('users', storedUser_({
+    username: username, name: name, passwordHash: hash_(password, salt), salt: salt,
+    role: 'admin', active: true, createdAt: nowText_(), dept: '', perms: {}, lastLogin: ''
+  }));
+  return { success: true, message: 'تم إنشاء حساب المدير: ' + username };
+}
+
+/* =========================================
    أوامر الشراء
 ========================================= */
 
 function listOrders_(data) {
-  requireUser_(data.token);
-  const orders = readAll_('orders').sort((a, b) =>
-    b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
+  const user = requireUser_(data.token);
+  requirePage_(user, 'orders', 'view');
+  const orders = readAll_('orders')
+    .filter(o => deptAllowed_(user, o.department))
+    .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
   return { success: true, orders: orders };
 }
 
 function saveOrder_(data) {
   const user = requireUser_(data.token);
-  requireRole_(user, ['admin', 'employee']);
+  requirePage_(user, 'orders', 'edit');
   const input = data.order || {};
   const order = cleanOrder_(input);
+  const full = level_(user, 'orders') === 'full';
+
+  if (!deptAllowed_(user, order.department)) throw new Error('لا يمكنك إضافة أوامر لقسم غير قسمك');
 
   return withLock_(() => {
     const all = readAll_('orders');
     const existing = input.id ? all.find(o => o.id === String(input.id)) : null;
 
     if (input.id && !existing) throw new Error('الأمر غير موجود، ربما حذفه شخص آخر');
+    if (existing && !deptAllowed_(user, existing.department)) throw new Error('هذا الأمر يخص قسمًا آخر');
     if (all.some(o => o.poNo.toLowerCase() === order.poNo.toLowerCase() && o.id !== String(input.id || ''))) {
       throw new Error('رقم الأمر ' + order.poNo + ' مستخدم مسبقًا');
     }
 
     const now = nowText_();
     if (existing) {
-      if (existing.status === 'معتمد' && user.role !== 'admin') {
-        throw new Error('الأمر معتمد، تعديله للمدير فقط');
-      }
+      if (existing.status === 'معتمد' && !full) throw new Error('الأمر معتمد، تعديله يحتاج صلاحية كاملة');
       Object.assign(order, {
         id: existing.id, status: existing.status,
         createdBy: existing.createdBy, createdAt: existing.createdAt,
         approvedBy: existing.approvedBy, approvedAt: existing.approvedAt
       });
     } else {
-      const isAdmin = user.role === 'admin';
       Object.assign(order, {
         id: Utilities.getUuid(),
-        status: isAdmin ? 'معتمد' : 'بانتظار الاعتماد',
+        status: full ? 'معتمد' : 'بانتظار الاعتماد',
         createdBy: user.username, createdAt: now,
-        approvedBy: isAdmin ? user.username : '', approvedAt: isAdmin ? now : ''
+        approvedBy: full ? user.username : '', approvedAt: full ? now : ''
       });
     }
     order.updatedBy = user.username;
@@ -110,11 +350,12 @@ function saveOrder_(data) {
 
 function approveOrder_(data) {
   const user = requireUser_(data.token);
-  requireRole_(user, ['admin']);
+  requirePage_(user, 'orders', 'full');
 
   return withLock_(() => {
     const order = readAll_('orders').find(o => o.id === String(data.id));
     if (!order) throw new Error('الأمر غير موجود');
+    if (!deptAllowed_(user, order.department)) throw new Error('هذا الأمر يخص قسمًا آخر');
     const now = nowText_();
     Object.assign(order, { status: 'معتمد', approvedBy: user.username, approvedAt: now, updatedBy: user.username, updatedAt: now });
     writeRecord_('orders', order);
@@ -124,12 +365,13 @@ function approveOrder_(data) {
 
 function deleteOrder_(data) {
   const user = requireUser_(data.token);
-  requireRole_(user, ['admin']);
+  requirePage_(user, 'orders', 'full');
 
   return withLock_(() => {
-    const row = findRow_('orders', data.id);
-    if (!row) throw new Error('الأمر غير موجود');
-    tableSheet_('orders').deleteRow(row);
+    const order = readAll_('orders').find(o => o.id === String(data.id));
+    if (!order) throw new Error('الأمر غير موجود');
+    if (!deptAllowed_(user, order.department)) throw new Error('هذا الأمر يخص قسمًا آخر');
+    tableSheet_('orders').deleteRow(findRow_('orders', order.id));
     return { success: true, message: 'تم حذف الأمر' };
   });
 }
@@ -213,9 +455,10 @@ function readAll_(key) {
   const values = tableSheet_(key).getDataRange().getValues();
   if (values.length < 2) return [];
   const head = values[0].map(String);
+  const ki = head.indexOf(t.key);
   const tz = Session.getScriptTimeZone();
 
-  return values.slice(1).filter(r => r[0] !== '').map(r => {
+  return values.slice(1).filter(r => ki >= 0 && r[ki] !== '').map(r => {
     const o = {};
     t.headers.forEach(h => {
       const i = head.indexOf(h);
@@ -234,13 +477,17 @@ function readAll_(key) {
   });
 }
 
-function findRow_(key, id) {
+/** رقم السطر حسب قيمة المفتاح (id أو username) */
+function findRow_(key, value) {
+  const t = TABLES[key];
   const sheet = tableSheet_(key);
   const last = sheet.getLastRow();
-  if (last < 2 || !id) return 0;
-  const ids = sheet.getRange(2, 1, last - 1, 1).getValues();
-  for (let i = 0; i < ids.length; i++) {
-    if (String(ids[i][0]) === String(id)) return i + 2;
+  if (last < 2 || value === '' || value == null) return 0;
+  const col = header_(key).indexOf(t.key) + 1;
+  const vals = sheet.getRange(2, col, last - 1, 1).getValues();
+  const target = String(value).toLowerCase();
+  for (let i = 0; i < vals.length; i++) {
+    if (String(vals[i][0]).toLowerCase() === target) return i + 2;
   }
   return 0;
 }
@@ -255,7 +502,7 @@ function writeRecord_(key, obj) {
     if (v == null) return '';
     return t.json.indexOf(h) >= 0 ? JSON.stringify(v) : v;
   });
-  const r = findRow_(key, obj.id) || sheet.getLastRow() + 1;
+  const r = findRow_(key, obj[t.key]) || sheet.getLastRow() + 1;
   const range = sheet.getRange(r, 1, 1, row.length);
   range.setNumberFormat('@');   // نص عادي حتى لا يغيّر الشيت التواريخ والأرقام
   range.setValues([row]);
@@ -269,109 +516,6 @@ function withLock_(fn) {
 
 function nowText_() {
   return Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'yyyy-MM-dd HH:mm');
-}
-
-/* =========================================
-   تسجيل الدخول والجلسات
-========================================= */
-
-function login_(username, password) {
-  username = cleanUsername_(username);
-  password = String(password || '');
-  if (!username || !password) throw new Error('أدخل اسم المستخدم وكلمة المرور');
-
-  const user = findUser_(username);
-  if (!user || !user.active || !sameText_(hash_(password, user.salt), user.passwordHash)) {
-    throw new Error('اسم المستخدم أو كلمة المرور غير صحيحة');
-  }
-
-  const token = Utilities.getUuid() + Utilities.getUuid();
-  const session = { username: user.username, expiresAt: Date.now() + SESSION_HOURS * 3600 * 1000 };
-  CacheService.getScriptCache().put(SESSION_PREFIX + token, JSON.stringify(session), SESSION_HOURS * 3600);
-
-  return { success: true, token: token, user: publicUser_(user) };
-}
-
-function me_(token) {
-  return { success: true, user: publicUser_(requireUser_(token)) };
-}
-
-function logout_(token) {
-  if (token) CacheService.getScriptCache().remove(SESSION_PREFIX + token);
-  return { success: true };
-}
-
-function requireUser_(token) {
-  token = String(token || '');
-  const raw = token ? CacheService.getScriptCache().get(SESSION_PREFIX + token) : null;
-  if (!raw) throw new Error('انتهت الجلسة، سجّل الدخول مجددًا');
-
-  const session = JSON.parse(raw);
-  const user = Date.now() < session.expiresAt ? findUser_(session.username) : null;
-  if (!user || !user.active) {
-    CacheService.getScriptCache().remove(SESSION_PREFIX + token);
-    throw new Error('انتهت الجلسة، سجّل الدخول مجددًا');
-  }
-  return user;
-}
-
-function requireRole_(user, roles) {
-  if (roles.indexOf(user.role) < 0) throw new Error('ليس لديك صلاحية لهذه العملية');
-}
-
-/* =========================================
-   الحسابات
-========================================= */
-
-function createUser_(username, name, password, role) {
-  username = cleanUsername_(username);
-  name = String(name || '').trim();
-  password = String(password || '');
-
-  if (!/^[a-z0-9._-]{3,30}$/.test(username)) {
-    throw new Error('اسم المستخدم: حروف إنجليزية صغيرة أو أرقام فقط، من 3 إلى 30 حرفًا');
-  }
-  if (!name) throw new Error('أدخل الاسم');
-  if (password.length < 8) throw new Error('كلمة المرور 8 أحرف على الأقل');
-  if (ROLES.indexOf(role) < 0) throw new Error('الدور غير صحيح');
-  if (findUser_(username)) throw new Error('اسم المستخدم موجود مسبقًا');
-
-  const salt = Utilities.getUuid();
-  usersSheet_().appendRow([username, name, hash_(password, salt), salt, role, true, new Date()]);
-  return { success: true, message: 'تم إنشاء الحساب: ' + username };
-}
-
-function findUser_(username) {
-  const values = usersSheet_().getDataRange().getValues();
-  for (let i = 1; i < values.length; i++) {
-    const r = values[i];
-    if (String(r[0]).toLowerCase() === username) {
-      return {
-        username: String(r[0]),
-        name: String(r[1]),
-        passwordHash: String(r[2]),
-        salt: String(r[3]),
-        role: String(r[4]),
-        active: r[5] === true || String(r[5]).toUpperCase() === 'TRUE'
-      };
-    }
-  }
-  return null;
-}
-
-function publicUser_(u) {
-  return { username: u.username, name: u.name, role: u.role };
-}
-
-function usersSheet_() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  let sheet = ss.getSheetByName(USERS_SHEET);
-  if (!sheet) {
-    sheet = ss.insertSheet(USERS_SHEET);
-    sheet.getRange(1, 1, 1, USER_HEADERS.length).setValues([USER_HEADERS]).setFontWeight('bold');
-    sheet.setFrozenRows(1);
-  }
-  return sheet;
 }
 
 /* =========================================
@@ -428,7 +572,6 @@ function onOpen() {
 }
 
 function menuSetup() {
-  usersSheet_();
   secret_();
   Object.keys(TABLES).forEach(k => header_(k));
   SpreadsheetApp.getUi().alert('✅ تم تجهيز قاعدة البيانات');
@@ -436,8 +579,8 @@ function menuSetup() {
 
 function menuCreateAdmin() {
   const ui = SpreadsheetApp.getUi();
-  if (usersSheet_().getLastRow() > 1) {
-    ui.alert('يوجد حساب مسبقًا. إنشاء المدير الأول متاح مرة واحدة فقط.');
+  if (readAll_('users').length) {
+    ui.alert('يوجد حساب مسبقًا. أضف بقية الحسابات من صفحة «الموظفون» داخل المنصة.');
     return;
   }
   const name = ask_('الاسم الكامل:');
@@ -448,7 +591,7 @@ function menuCreateAdmin() {
   if (password === null) return;
 
   try {
-    ui.alert('✅ ' + createUser_(username, name, password, 'admin').message);
+    ui.alert('✅ ' + createFirstAdmin_(username, name, password).message);
   } catch (err) {
     ui.alert('❌ ' + err.message);
   }
@@ -463,7 +606,7 @@ function menuTestLogin() {
 
   try {
     const r = login_(username, password);
-    ui.alert('✅ تسجيل الدخول ناجح\n\nالاسم: ' + r.user.name + '\nالدور: ' + r.user.role);
+    ui.alert('✅ تسجيل الدخول ناجح\n\nالاسم: ' + r.user.name + '\nالنوع: ' + (r.user.role === 'admin' ? 'مدير' : 'موظف'));
   } catch (err) {
     ui.alert('❌ ' + err.message);
   }
