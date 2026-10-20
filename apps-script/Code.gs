@@ -1,6 +1,6 @@
 /**
  * منصة العمل — الخادم
- * الخطوة 13: لوحة الإدارة
+ * الخطوة 14: تقرير الإدارة العليا + أسعار الشحن
  */
 
 const SESSION_HOURS = 6;
@@ -19,7 +19,9 @@ const PAGES = {
   containers: ['none', 'view', 'edit', 'full'],
   receive: ['none', 'edit'],
   files: ['none', 'view', 'edit', 'full'],
-  dashboard: ['none', 'view']
+  dashboard: ['none', 'view'],
+  report: ['none', 'view'],
+  rates: ['none', 'view', 'edit', 'full']
 };
 
 const CERT_STATES = ['لا تحتاج', 'غير مصدرة', 'قيد الإصدار', 'صادرة'];
@@ -80,6 +82,13 @@ const TABLES = {
               'claimAmount', 'claimStatus', 'claimNotes', 'notes', 'status', 'closedBy', 'closedAt',
               'updatedBy', 'updatedAt', 'declarations'],
     json: ['docs', 'costs', 'declarations'],
+    numbers: []
+  },
+  rates: {
+    sheet: 'أسعار الشحن',
+    key: 'date',
+    headers: ['date', 'prices', 'updatedBy', 'updatedAt'],
+    json: ['prices'],
     numbers: []
   }
 };
@@ -143,6 +152,11 @@ function doPost(e) {
       case 'reopenFile':        return json_(reopenFile_(data));
       // لوحة الإدارة
       case 'dashboard':         return json_(dashboard_(data));
+      // تقرير الإدارة العليا وأسعار الشحن
+      case 'report':            return json_(report_(data));
+      case 'listRates':         return json_(listRates_(data));
+      case 'saveRates':         return json_(saveRates_(data));
+      case 'deleteRates':       return json_(deleteRates_(data));
       default: throw new Error('العملية غير مدعومة');
     }
   } catch (err) {
@@ -1527,6 +1541,187 @@ function dashboard_(data) {
     arrivals: arrivals,
     topSuppliers: top(s => s.supplier),
     topPorts: top(s => s.port)
+  };
+}
+
+/* =========================================
+   أسعار الشحن (إدخال يومي)
+========================================= */
+
+const DEFAULT_PORTS = ['NINGBO', 'SHANGHAI', 'SHEKOU', 'NANSHA', 'QINGDAO', 'XIAMEN', 'TIANJIN', 'HONG KONG'];
+
+function cleanPort_(p) {
+  return String(p || '').trim().toUpperCase().replace(/\s+/g, ' ').slice(0, 40);
+}
+
+function readRates_() {
+  return readAll_('rates')
+    .map(r => ({ date: r.date, prices: r.prices && !Array.isArray(r.prices) ? r.prices : {}, updatedBy: r.updatedBy, updatedAt: r.updatedAt }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+}
+
+/** قائمة الموانئ: الافتراضية + اللي انسعّرت قبل + اللي انشحن منها */
+function ratePorts_(rates) {
+  const set = {};
+  DEFAULT_PORTS.forEach(p => { set[p] = true; });
+  rates.forEach(r => Object.keys(r.prices).forEach(p => { set[p] = true; }));
+  readAll_('shipments').forEach(s => { if (s.port) set[cleanPort_(s.port)] = true; });
+  return Object.keys(set);
+}
+
+function listRates_(data) {
+  const user = requireUser_(data.token);
+  if (level_(user, 'rates') === 'none' && level_(user, 'report') === 'none') throw new Error('ليس لديك صلاحية لهذه العملية');
+  const rates = readRates_();
+  return { success: true, rates: rates, ports: ratePorts_(rates) };
+}
+
+function saveRates_(data) {
+  const user = requireUser_(data.token);
+  requirePage_(user, 'rates', 'edit');
+  const date = String(data.date || '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('حدد تاريخ الأسعار');
+  if (date > todayText_()) throw new Error('تاريخ الأسعار في المستقبل');
+
+  const prices = {};
+  const input = data.prices || {};
+  Object.keys(input).forEach(p => {
+    const port = cleanPort_(p);
+    if (!port) return;
+    const v = {};
+    ['dmm', 'jed'].forEach(k => {
+      const raw = input[p] && input[p][k];
+      if (raw === '' || raw == null) return;
+      const n = Number(String(raw).replace(/,/g, ''));
+      if (!(n > 0) || n > 100000) throw new Error('سعر غير صحيح لميناء ' + port);
+      v[k] = Math.round(n);
+    });
+    if (v.dmm || v.jed) prices[port] = v;
+  });
+  if (!Object.keys(prices).length) throw new Error('أدخل سعرًا واحدًا على الأقل');
+
+  return withLock_(() => {
+    const exists = readAll_('rates').some(r => r.date === date);
+    writeRecord_('rates', { date: date, prices: prices, updatedBy: user.username, updatedAt: nowText_() });
+    const rates = readRates_();
+    return { success: true, rates: rates, ports: ratePorts_(rates),
+             message: (exists ? 'تم تحديث أسعار ' : 'تم حفظ أسعار ') + date + ' (' + Object.keys(prices).length + ' ميناء)' };
+  });
+}
+
+function deleteRates_(data) {
+  const user = requireUser_(data.token);
+  requirePage_(user, 'rates', 'full');
+  return withLock_(() => {
+    const row = findRow_('rates', String(data.date));
+    if (!row) throw new Error('لا توجد أسعار بهذا التاريخ');
+    tableSheet_('rates').deleteRow(row);
+    const rates = readRates_();
+    return { success: true, rates: rates, ports: ratePorts_(rates), message: 'تم حذف أسعار ' + data.date };
+  });
+}
+
+/** آخر سعر لكل ميناء ووجهة، والسعر اللي قبله للمقارنة */
+function latestRates_(rates) {
+  const out = {};
+  rates.forEach(r => Object.keys(r.prices).forEach(p => {
+    out[p] = out[p] || {};
+    ['dmm', 'jed'].forEach(k => {
+      const v = r.prices[p][k];
+      if (!v) return;
+      const cur = out[p][k];
+      out[p][k] = { value: v, date: r.date, prev: cur ? cur.value : null, prevDate: cur ? cur.date : '' };
+    });
+  }));
+  return Object.keys(out).sort().map(p => ({ port: p, dmm: out[p].dmm || null, jed: out[p].jed || null }));
+}
+
+/* =========================================
+   تقرير الإدارة العليا
+========================================= */
+
+function report_(data) {
+  const user = requireUser_(data.token);
+  requirePage_(user, 'report', 'view');
+  const today = todayText_();
+
+  const shipments = readAll_('shipments').filter(s => deptAllowed_(user, s.department));
+  const containers = readAll_('containers').filter(c => deptAllowed_(user, c.department));
+  containers.forEach(c => { c.state = containerState_(c); c.free = freeTimeOf_(c, today); });
+
+  // ===== البضائع (على مستوى البند) =====
+  const lineRows = list => {
+    const rows = [];
+    list.forEach(s => (s.lines || []).forEach(l => rows.push({
+      poNo: s.poNo, supplier: s.supplier, model: l.model, qty: Number(l.qty) || 0, containers: Number(l.containers) || 0,
+      invoiceNo: s.invoiceNo, port: s.port, readyDate: s.readyDate, requestCode: s.requestCode,
+      serial: s.serial, shipDate: s.shipDate, eta: s.eta, arrivalPort: s.arrivalPort, inspection: s.inspection
+    })));
+    return rows;
+  };
+  const pending = shipments.filter(s => s.status !== SHIPPED);
+  const mfg = pending.filter(s => shipState_(s) === 'قيد التصنيع').sort((a, b) => a.readyDate.localeCompare(b.readyDate));
+  const ready = pending.filter(s => shipState_(s) === 'جاهزة للشحن').sort((a, b) => a.readyDate.localeCompare(b.readyDate));
+
+  // المشحونة: الشحنات المعمّدة اللي ما اكتمل استلام حاوياتها
+  const openShipped = shipments.filter(s => s.status === SHIPPED)
+    .filter(s => {
+      const mine = containers.filter(c => c.shipmentId === s.id);
+      return !mine.length || mine.some(c => !c.receivedDate);
+    })
+    .sort((a, b) => (a.eta || '9').localeCompare(b.eta || '9'));
+
+  // ===== الحاويات حسب المرحلة =====
+  const cRow = c => ({
+    containerNo: c.containerNo, serial: c.serial, poNo: c.poNo, invoiceNo: c.invoiceNo, model: c.model, qty: Number(c.qty) || 0,
+    arrivalPort: c.arrivalPort, eta: c.eta, dischargeDate: c.dischargeDate, declarationNo: c.declarationNo,
+    warehouse: c.warehouse, receivedDate: c.receivedDate,
+    freeLast: c.free ? c.free.last : '', freeLeft: c.free ? c.free.left : null
+  });
+  const bySerial = (a, b) => (Number(a.serial) - Number(b.serial)) || (Number(a.seq) - Number(b.seq));
+  const atSea = containers.filter(c => c.state === 'في الطريق').sort(bySerial).map(cRow);
+  const noDecl = containers.filter(c => c.state === 'في الميناء' && !c.declarationNo).sort(bySerial).map(cRow);
+  const inYard = containers.filter(c => c.state === 'في الميناء' && c.declarationNo).sort(bySerial).map(cRow);
+  const received = containers.filter(c => c.state === 'استلمت')
+    .sort((a, b) => b.receivedDate.localeCompare(a.receivedDate)).map(cRow);
+  const returned = containers.filter(c => c.state === 'أُعيد الفارغ').length;
+
+  // ===== حسب المستودع =====
+  const wh = {};
+  containers.filter(c => c.receivedDate).forEach(c => {
+    const k = c.warehouse || 'غير محدد';
+    wh[k] = wh[k] || { warehouse: k, containers: 0, notReturned: 0, qty: 0, models: {} };
+    wh[k].containers++;
+    if (!c.emptyReturnDate) wh[k].notReturned++;
+    const q = Number(c.receivedQty !== '' ? c.receivedQty : c.qty) || 0;
+    wh[k].qty += q;
+    if (c.model) wh[k].models[c.model] = (wh[k].models[c.model] || 0) + q;
+  });
+  const warehouses = Object.keys(wh).map(k => {
+    const w = wh[k];
+    w.models = Object.keys(w.models).map(m => ({ model: m, qty: w.models[m] })).sort((a, b) => b.qty - a.qty);
+    return w;
+  }).sort((a, b) => b.containers - a.containers);
+
+  const sum = (rows, k) => rows.reduce((t, r) => t + (Number(r[k]) || 0), 0);
+  const rates = readRates_();
+
+  return {
+    success: true,
+    today: today,
+    goods: {
+      mfg: lineRows(mfg),
+      ready: lineRows(ready),
+      shipped: lineRows(openShipped)
+    },
+    containers: { atSea: atSea, noDecl: noDecl, inYard: inYard, received: received, returned: returned },
+    summary: {
+      mfg: { qty: sum(lineRows(mfg), 'qty'), containers: sum(lineRows(mfg), 'containers'), requests: mfg.length },
+      ready: { qty: sum(lineRows(ready), 'qty'), containers: sum(lineRows(ready), 'containers'), requests: ready.length },
+      shipped: { qty: sum(lineRows(openShipped), 'qty'), containers: sum(lineRows(openShipped), 'containers'), invoices: openShipped.length }
+    },
+    warehouses: warehouses,
+    rates: { latest: latestRates_(rates), lastDate: rates.length ? rates[rates.length - 1].date : '' }
   };
 }
 

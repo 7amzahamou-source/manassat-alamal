@@ -77,5 +77,11 @@ const API = {
   reopenFile(serial)    { return this.call('reopenFile', { token: this.token(), serial }); },
 
   // لوحة الإدارة
-  dashboard()           { return this.call('dashboard', { token: this.token() }); }
+  dashboard()           { return this.call('dashboard', { token: this.token() }); },
+
+  // تقرير الإدارة العليا وأسعار الشحن
+  report()              { return this.call('report',      { token: this.token() }); },
+  listRates()           { return this.call('listRates',   { token: this.token() }); },
+  saveRates(date, prices) { return this.call('saveRates', { token: this.token(), date, prices }); },
+  deleteRates(date)     { return this.call('deleteRates', { token: this.token(), date }); }
 };

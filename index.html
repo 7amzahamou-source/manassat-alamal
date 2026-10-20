@@ -100,6 +100,74 @@
           </div>
         </section>
 
+        <!-- ===== صفحة: تقرير الإدارة العليا ===== -->
+        <section id="page-report" class="page hide">
+          <div class="page-head">
+            <div>
+              <h1>تقرير الإدارة العليا</h1>
+              <p id="rpDate" class="sub"></p>
+            </div>
+            <div class="actions no-print">
+              <button id="rpRefreshBtn" class="btn">تحديث</button>
+              <button id="rpPrintBtn" class="btn primary">طباعة / PDF</button>
+            </div>
+          </div>
+          <div id="rpSummary" class="rp-summary"></div>
+          <nav id="rpToc" class="rp-toc no-print" aria-label="أقسام التقرير"></nav>
+          <div id="rpBody"></div>
+        </section>
+
+        <!-- ===== صفحة: أسعار الشحن ===== -->
+        <section id="page-rates" class="page hide">
+          <div class="page-head">
+            <div>
+              <h1>أسعار الشحن</h1>
+              <p class="sub">سعر الحاوية بالدولار من كل ميناء إلى الدمام وجدة. كل إدخال يُحفظ بتاريخه ويُبنى عليه الرسم البياني.</p>
+            </div>
+            <div class="actions">
+              <button id="rtRefreshBtn" class="btn">تحديث</button>
+            </div>
+          </div>
+
+          <div id="rtEntry" class="card db-card">
+            <div class="db-head">
+              <b>إدخال أسعار يوم</b>
+              <div class="rt-date"><label for="rt_date">التاريخ</label><input id="rt_date" type="date"></div>
+            </div>
+            <p id="rtNote" class="sub small" style="padding:10px 18px 0;margin:0"></p>
+            <div class="table-wrap">
+              <table class="items rt-in">
+                <thead><tr><th>ميناء الشحن</th><th>الدمام (USD / حاوية)</th><th>جدة (USD / حاوية)</th><th>آخر سعر مسجّل قبل هذا التاريخ</th></tr></thead>
+                <tbody id="rtIn"></tbody>
+              </table>
+            </div>
+            <div class="rt-foot">
+              <div class="rt-add"><input id="rtNewPort" placeholder="إضافة ميناء آخر" dir="ltr" list="portsList" autocomplete="off"><button type="button" id="rtAddPortBtn" class="btn small">+ إضافة</button></div>
+              <span id="rtError" class="error"></span>
+              <button type="button" id="rtDeleteBtn" class="btn danger hide">حذف أسعار هذا اليوم</button>
+              <button type="button" id="rtSaveBtn" class="btn primary">حفظ الأسعار</button>
+            </div>
+          </div>
+
+          <div class="card db-card">
+            <div class="db-head">
+              <b>تطور أسعار الشحن (USD / حاوية)</b>
+              <div class="rt-chips" id="rtChips"></div>
+            </div>
+            <div id="rtChart" class="rt-chart"></div>
+          </div>
+
+          <div class="card db-card">
+            <div class="db-head"><b>آخر الأسعار مقارنة بالسعر السابق</b><span id="rtLastDate" class="sub small"></span></div>
+            <div class="table-wrap"><table class="compact"><thead><tr><th>ميناء الشحن</th><th>الدمام</th><th>التغيّر</th><th>جدة</th><th>التغيّر</th><th>تاريخ آخر سعر</th></tr></thead><tbody id="rtLatest"></tbody></table></div>
+          </div>
+
+          <div class="card db-card">
+            <div class="db-head"><b>سجل الأسعار</b><span class="sub small">اضغط على يوم لتعديله</span></div>
+            <div class="table-wrap"><table class="compact"><thead><tr><th>التاريخ</th><th>الموانئ المسعّرة</th><th>متوسط الدمام</th><th>متوسط جدة</th><th>أدخلها</th></tr></thead><tbody id="rtHist"></tbody></table></div>
+          </div>
+        </section>
+
         <!-- ===== صفحة: خريطة سير العمل (للجميع) ===== -->
         <section id="page-workflow" class="page hide">
           <div class="page-head">
@@ -849,11 +917,13 @@
   <script src="api.js"></script>
   <script src="app.js"></script>
   <script src="dashboard.js"></script>
+  <script src="report.js"></script>
   <script src="orders.js"></script>
   <script src="models.js"></script>
   <script src="shipping.js"></script>
   <script src="containers.js"></script>
   <script src="files.js"></script>
+  <script src="rates.js"></script>
   <script src="workflow.js"></script>
   <script src="users.js"></script>
 </body>
