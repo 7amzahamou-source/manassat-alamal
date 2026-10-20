@@ -254,6 +254,46 @@
           </div>
         </section>
 
+        <!-- ===== صفحة: ملفات الشحنات ===== -->
+        <section id="page-files" class="page hide">
+          <div class="page-head">
+            <div>
+              <h1>ملفات الشحنات</h1>
+              <p class="sub">ملف لكل تسلسل: البيانات البحرية، المستندات، التخليص الجمركي، التكاليف والتكلفة الواصلة، ثم الإقفال.</p>
+            </div>
+            <div class="actions">
+              <button id="flRefreshBtn" class="btn">تحديث</button>
+            </div>
+          </div>
+          <div id="flStats" class="stats five"></div>
+          <div class="card">
+            <div class="toolbar">
+              <input id="flSearch" placeholder="ابحث بالتسلسل أو الفاتورة أو أمر الشراء أو البوليصة أو البيان">
+              <select id="flFilterState">
+                <option value="">كل الحالات</option>
+                <option>في البحر</option>
+                <option>وصلت - بانتظار البيان</option>
+                <option>تحت التخليص</option>
+                <option>مفسوحة</option>
+                <option>مقفل</option>
+                <option value="open">غير مقفلة</option>
+              </select>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>التسلسل</th><th>الفاتورة</th><th>أمر الشراء</th><th>البوليصة</th><th>الخط الملاحي</th>
+                    <th>الوصول</th><th>الحاويات (مستلمة)</th><th>المستندات</th><th>البيان</th><th>الفسح</th>
+                    <th>التكلفة الواصلة</th><th>الحالة</th>
+                  </tr>
+                </thead>
+                <tbody id="flBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
         <!-- ===== صفحة: الموظفون والصلاحيات (للمدير فقط) ===== -->
         <section id="page-users" class="page hide">
           <div class="page-head">
@@ -617,6 +657,94 @@
     </form>
   </dialog>
 
+  <!-- ===== نافذة ملف الشحنة ===== -->
+  <dialog id="fileDialog">
+    <form id="fileForm">
+      <div class="dlg-head">
+        <h2 id="fdTitle"></h2>
+        <span id="fdState"></span>
+        <button type="button" class="btn" data-close>إغلاق</button>
+      </div>
+      <div class="dlg-body">
+        <div id="fdInfo" class="kv"></div>
+
+        <h3 class="fh">البيانات البحرية</h3>
+        <div class="grid">
+          <div><label for="fd_billOfLading">رقم البوليصة (B/L)</label><input id="fd_billOfLading" dir="ltr"></div>
+          <div><label for="fd_shippingLine">الخط الملاحي</label><input id="fd_shippingLine" list="linesList" autocomplete="off"></div>
+          <div><label for="fd_vessel">الباخرة / الرحلة</label><input id="fd_vessel" dir="ltr"></div>
+          <div><label for="fd_actualArrival">الوصول الفعلي</label><input id="fd_actualArrival" type="date"></div>
+        </div>
+
+        <h3 class="fh">المستندات المستلمة <span id="fdDocsCount" class="tag gray"></span></h3>
+        <div id="fdDocs" class="docs-grid"></div>
+
+        <h3 class="fh">التخليص الجمركي</h3>
+        <div class="grid">
+          <div><label for="fd_declarationNo">رقم البيان</label><input id="fd_declarationNo" dir="ltr"></div>
+          <div><label for="fd_declarationDate">تاريخ البيان</label><input id="fd_declarationDate" type="date"></div>
+          <div><label for="fd_releaseDate">تاريخ الفسح</label><input id="fd_releaseDate" type="date"></div>
+          <div><label>المخلص الجمركي</label><input id="fdBroker" disabled></div>
+        </div>
+
+        <h3 class="fh">التكاليف والتكلفة الواصلة (ريال)</h3>
+        <div class="grid">
+          <div><label>قيمة البضاعة</label><input id="fdGoodsOrig" disabled dir="ltr"></div>
+          <div><label for="fd_exchangeRate">سعر الصرف إلى الريال</label><input id="fd_exchangeRate" type="number" min="0" step="any"></div>
+          <div><label>قيمة البضاعة (ريال)</label><input id="fdGoodsSar" disabled dir="ltr"></div>
+          <div></div>
+        </div>
+        <div id="fdCosts" class="grid" style="margin-top:14px"></div>
+        <div class="grid" style="margin-top:14px">
+          <div>
+            <label for="fd_vat">ضريبة الاستيراد 15% (تُسترد — خارج التكلفة)</label>
+            <input id="fd_vat" type="number" min="0" step="0.01">
+          </div>
+          <div style="display:flex;align-items:flex-end"><button type="button" id="fdVatBtn" class="btn small">احسب 15% تلقائيًا</button></div>
+        </div>
+
+        <div class="totals landed">
+          <div><span>قيمة البضاعة</span><b id="fdTotGoods">0</b></div>
+          <div><span>المصاريف</span><b id="fdTotExp">0</b></div>
+          <div><span>نسبة التحميل</span><b id="fdLoad">—</b></div>
+          <div class="grand"><span>التكلفة الواصلة</span><b id="fdLanded">0</b></div>
+        </div>
+
+        <div class="table-wrap" style="margin-top:14px">
+          <table class="items">
+            <thead><tr><th>الموديل</th><th>أمر الشراء</th><th>الكمية</th><th>سعر الوحدة</th><th>القيمة (ريال)</th><th>نصيبه من المصاريف</th><th>تكلفة الوحدة الواصلة</th></tr></thead>
+            <tbody id="fdUnits"></tbody>
+          </table>
+        </div>
+
+        <h3 class="fh">المطالبات والملاحظات</h3>
+        <div class="grid">
+          <div><label for="fd_claimAmount">مبلغ المطالبة (ريال)</label><input id="fd_claimAmount" type="number" min="0" step="0.01"></div>
+          <div>
+            <label for="fd_claimStatus">حالة المطالبة</label>
+            <select id="fd_claimStatus"><option value="">لا توجد</option><option>مفتوحة</option><option>مقبولة</option><option>مرفوضة</option><option>مُسددة</option></select>
+          </div>
+          <div class="wide"><label for="fd_claimNotes">تفاصيل المطالبة (على من، والسبب)</label><input id="fd_claimNotes"></div>
+          <div class="wide" style="grid-column:1/-1"><label for="fd_notes">ملاحظات</label><input id="fd_notes"></div>
+        </div>
+        <p id="fdHint" class="note hide">لإقفال الملف لازم: رقم البيان، تاريخ الفسح، استلام كل الحاويات، وما فيه مطالبة مفتوحة.</p>
+        <p id="fdMeta" class="meta"></p>
+      </div>
+      <div class="dlg-foot">
+        <div id="fdError" class="error"></div>
+        <button type="button" id="fdReopenBtn" class="btn">إعادة فتح الملف</button>
+        <button type="button" id="fdPrintBtn" class="btn">طباعة</button>
+        <button type="submit" id="fdSaveBtn" class="btn">حفظ</button>
+        <button type="button" id="fdCloseBtn" class="btn primary">إقفال الملف</button>
+      </div>
+    </form>
+  </dialog>
+
+  <datalist id="linesList">
+    <option>MSC</option><option>MAERSK</option><option>CMA CGM</option><option>COSCO</option><option>OOCL</option>
+    <option>HAPAG-LLOYD</option><option>ONE</option><option>EVERGREEN</option><option>YANG MING</option><option>HMM</option>
+    <option>ZIM</option><option>PIL</option><option>ESL</option>
+  </datalist>
   <datalist id="whList"></datalist>
   <datalist id="portsList">
     <option>NINGBO</option><option>SHANGHAI</option><option>SHEKOU</option><option>SHENZHEN</option><option>NANSHA</option>
@@ -636,6 +764,7 @@
   <script src="models.js"></script>
   <script src="shipping.js"></script>
   <script src="containers.js"></script>
+  <script src="files.js"></script>
   <script src="users.js"></script>
 </body>
 </html>

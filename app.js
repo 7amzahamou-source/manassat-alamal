@@ -1,7 +1,7 @@
 /**
  * منصة العمل — الأساس
  * الدخول والخروج، القائمة حسب الصلاحيات، والأدوات المشتركة.
- * كل صفحة في ملف خاص (orders.js، models.js، shipping.js، containers.js، users.js) وتسجّل نفسها بـ registerPage.
+ * كل صفحة في ملف خاص (orders.js، models.js، shipping.js، containers.js، files.js، users.js) وتسجّل نفسها بـ registerPage.
  */
 const $ = id => document.getElementById(id);
 
@@ -20,6 +20,7 @@ const ICONS = {
   shipped: '<svg viewBox="0 0 24 24"><path d="M2 20h20"/><path d="M4 17l-1-5h18l-2 5"/><path d="M8 12V7h8v5"/></svg>',
   containers: '<svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="13" rx="1.5"/><path d="M6 7v13M10 7v13M14 7v13M18 7v13M2 7l3-4h14l3 4"/></svg>',
   receive: '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>',
+  files: '<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
   users: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 21c0-3.5 3-5.5 7-5.5s7 2 7 5.5"/><path d="M16 4a3.5 3.5 0 0 1 0 7M22 21c0-3-2-5-5-5.4"/></svg>'
 };
 

@@ -272,3 +272,24 @@ table.items input.qty-in { min-width: 100px; }
   .rc-form { grid-template-columns: 1fr; }
   .rc-form .wide { grid-column: auto; }
 }
+
+/* ===== ملفات الشحنات ===== */
+#flBody tr[data-serial] { cursor: pointer; }
+#flBody tr[data-serial]:hover { background: var(--acc-soft); }
+.fh { font-size: 16px; margin: 24px 0 10px; padding-top: 14px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 8px; }
+.docs-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.docs-grid label {
+  display: flex; align-items: center; gap: 8px; margin: 0; padding: 9px 12px; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 10px; color: var(--ink); font-size: 14px;
+}
+.docs-grid label:has(input:checked) { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); }
+.docs-grid input { width: 16px; height: 16px; margin: 0; }
+.totals.landed { width: 380px; }
+.btn.small.inline { padding: 2px 8px; }
+@media (max-width: 800px) { .docs-grid { grid-template-columns: 1fr 1fr; } }
+@media print {
+  body > *:not(dialog[open]) { display: none !important; }
+  dialog[open] { position: static; width: 100%; max-height: none; box-shadow: none; border-radius: 0; }
+  .dlg-foot, .dlg-head .btn { display: none !important; }
+  .dlg-head { position: static; }
+}

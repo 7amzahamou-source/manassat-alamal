@@ -67,5 +67,11 @@ const API = {
   addContainer(id)      { return this.call('addContainer',     { token: this.token(), id }); },
   deleteContainer(id)   { return this.call('deleteContainer',  { token: this.token(), id }); },
   findContainer(q)      { return this.call('findContainer',    { token: this.token(), q }); },
-  receiveContainer(r)   { return this.call('receiveContainer', { token: this.token(), receipt: r }); }
+  receiveContainer(r)   { return this.call('receiveContainer', { token: this.token(), receipt: r }); },
+
+  // ملفات الشحنات
+  listFiles()           { return this.call('listFiles',  { token: this.token() }); },
+  saveFile(f)           { return this.call('saveFile',   { token: this.token(), file: f }); },
+  closeFile(f)          { return this.call('closeFile',  { token: this.token(), file: f }); },
+  reopenFile(serial)    { return this.call('reopenFile', { token: this.token(), serial }); }
 };
