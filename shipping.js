@@ -5,7 +5,7 @@
 (function () {
   const SHIPPED = 'تم الشحن';
   const SD_FIELDS = ['invoiceNo', 'approvalNo', 'readyDate', 'forwarder', 'shipDate', 'eta', 'arrivalPort',
-    'broker', 'freight', 'freightCurrency', 'inspection', 'inspectionNote', 'notes'];
+    'broker', 'freight', 'freightCurrency', 'inspection', 'inspectionNote', 'freeDays', 'notes'];
 
   let pending = [];      // طلبات الشحن
   let shipped = [];      // البضاعة المشحونة

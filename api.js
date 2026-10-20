@@ -65,6 +65,7 @@ const API = {
   listContainers()      { return this.call('listContainers',   { token: this.token() }); },
   updateContainer(c)    { return this.call('updateContainer',  { token: this.token(), container: c }); },
   addContainer(id)      { return this.call('addContainer',     { token: this.token(), id }); },
+  bulkContainers(ids, fields) { return this.call('bulkContainers', { token: this.token(), ids, fields }); },
   deleteContainer(id)   { return this.call('deleteContainer',  { token: this.token(), id }); },
   findContainer(q)      { return this.call('findContainer',    { token: this.token(), q }); },
   receiveContainer(r)   { return this.call('receiveContainer', { token: this.token(), receipt: r }); },

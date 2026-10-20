@@ -3,15 +3,16 @@
  */
 (function () {
   const DOCS = [
-    ['invoice', 'الفاتورة التجارية'], ['packing', 'قائمة التعبئة'], ['bl', 'بوليصة الشحن'], ['origin', 'شهادة المنشأ'],
-    ['saber', 'شهادة المطابقة (سابر)'], ['insurance', 'شهادة التأمين'], ['do', 'إذن التسليم (D/O)']
+    ['invoice', 'الفاتورة التجارية'], ['packing', 'قائمة التعبئة'], ['origin', 'شهادة المنشأ'],
+    ['saber', 'شهادة المطابقة (سابر)'], ['insurance', 'شهادة التأمين'], ['hbl', 'HBL'], ['mbl', 'MBL'],
+    ['telex', 'TELEX RELEASE'], ['bank', 'مستندات البنك'], ['freightInvoice', 'فاتورة الشحن']
   ];
   const COSTS = [
     ['freight', 'الشحن البحري'], ['duty', 'الرسوم الجمركية'], ['port', 'رسوم الميناء'], ['clearance', 'أتعاب التخليص'],
     ['transport', 'النقل الداخلي'], ['storage', 'أرضيات / تأخير'], ['saber', 'سابر / فحص'], ['other', 'مصاريف أخرى']
   ];
-  const FIELDS = ['billOfLading', 'shippingLine', 'vessel', 'actualArrival', 'declarationNo', 'declarationDate',
-    'releaseDate', 'exchangeRate', 'vat', 'claimAmount', 'claimStatus', 'claimNotes', 'notes'];
+  const FIELDS = ['billOfLading', 'shippingLine', 'vessel', 'actualArrival',
+    'exchangeRate', 'vat', 'claimAmount', 'claimStatus', 'claimNotes', 'notes'];
   const RATES = { SAR: 1, USD: 3.75, EUR: 4.1, CNY: 0.52, AED: 1.02 };   // قيم مقترحة فقط، تُعدّل في الملف
 
   let files = [];
@@ -20,7 +21,7 @@
   const n = v => Number(String(v ?? '').replace(/,/g, '')) || 0;
   const sar = v => money(v) + ' ر.س';
   const stateTag = s => {
-    const cls = { 'في البحر': 'gray', 'وصلت - بانتظار البيان': 'wait', 'تحت التخليص': 'wait', 'مفسوحة': '', 'مقفل': 'ok' }[s] ?? '';
+    const cls = { 'في البحر': 'gray', 'وصلت - بانتظار البيان': 'wait', 'تحت التخليص': 'wait', 'مفسوحة جزئيًا': 'wait', 'مفسوحة': '', 'مقفل': 'ok' }[s] ?? '';
     return `<span class="tag ${cls}">${esc(s)}</span>`;
   };
   const docsCount = f => DOCS.filter(([k]) => (f.docs || {})[k]).length;
@@ -79,14 +80,14 @@
     const q = $('flSearch').value.trim().toLowerCase();
     const st = $('flFilterState').value;
     const list = files.filter(f =>
-      (!q || [f.serial, f.invoiceNo, f.poNos.join(' '), f.billOfLading, f.declarationNo, f.shippingLine].join(' ').toLowerCase().includes(q)) &&
+      (!q || [f.serial, f.invoiceNo, f.poNos.join(' '), f.billOfLading, f.declarations.map(d => d.no).join(' '), f.shippingLine].join(' ').toLowerCase().includes(q)) &&
       (!st || (st === 'open' ? f.state !== 'مقفل' : f.state === st)));
 
     const count = s => files.filter(f => f.state === s).length;
     $('flStats').innerHTML = [
       ['في البحر', count('في البحر')],
       ['وصلت - بانتظار البيان', count('وصلت - بانتظار البيان')],
-      ['تحت التخليص', count('تحت التخليص')],
+      ['تحت التخليص', count('تحت التخليص') + count('مفسوحة جزئيًا')],
       ['مفسوحة (لم تُقفل)', count('مفسوحة')],
       ['مقفلة', count('مقفل')]
     ].map(([l, v]) => `<div class="stat"><small>${l}</small><b>${v}</b></div>`).join('');
@@ -108,8 +109,8 @@
         <td>${arrival}</td>
         <td class="num">${num(f.containers)} <span class="muted">(${num(f.receivedContainers)})</span></td>
         <td><span class="tag ${docsCount(f) === DOCS.length ? 'ok' : 'gray'}">${docsCount(f)}/${DOCS.length}</span></td>
-        <td dir="ltr" style="text-align:right">${esc(f.declarationNo || '—')}</td>
-        <td>${esc(f.releaseDate || '—')}</td>
+        <td>${f.declarations.length ? `${f.declarations.length} بيان` : '—'}${f.noDeclContainers && f.declarations.length ? ` <span class="tag wait">${f.noDeclContainers} حاوية بدون</span>` : ''}</td>
+        <td>${f.declarations.length ? `<span class="tag ${f.declarations.every(d => d.release) ? 'ok' : 'gray'}">${f.declarations.filter(d => d.release).length}/${f.declarations.length}</span>` : '—'}</td>
         <td class="num">${c.expenses ? sar(c.landed) : '—'}</td>
         <td>${stateTag(f.state)}</td>
       </tr>`;
@@ -133,7 +134,18 @@
 
     FIELDS.forEach(k => { $('fd_' + k).value = f[k] ?? ''; });
     if (!f.exchangeRate && RATES[f.currency]) $('fd_exchangeRate').value = RATES[f.currency];
-    $('fdBroker').value = f.broker || '—';
+    $('fdBroker').textContent = f.broker || '—';
+    $('fdNoDecl').classList.toggle('hide', !f.noDeclContainers);
+    $('fdNoDecl').textContent = f.noDeclContainers
+      ? `⚠️ ${f.noDeclContainers} من ${f.containers} حاوية بدون رقم بيان — سجّلها من «متابعة الحاويات» (فيه تعديل جماعي).` : '';
+    $('fdDecls').innerHTML = f.declarations.length ? f.declarations.map((d, i) => `
+      <tr>
+        <td><b dir="ltr">${esc(d.no)}</b></td>
+        <td class="num">${num(d.containers)}</td>
+        <td><input type="date" data-decl="${i}" data-k="date" value="${esc(d.date)}"></td>
+        <td><input type="date" data-decl="${i}" data-k="release" value="${esc(d.release)}"></td>
+        <td id="declTag${i}"></td>
+      </tr>`).join('') : '<tr><td colspan="5" class="empty">ما فيه بيانات بعد. سجّل رقم البيان على الحاويات من «متابعة الحاويات».</td></tr>';
     $('fdGoodsOrig').value = money(f.goodsValue, f.currency);
     document.querySelectorAll('#fdDocs [data-doc]').forEach(el => { el.checked = !!(f.docs || {})[el.dataset.doc]; });
     document.querySelectorAll('#fdCosts [data-cost]').forEach(el => { el.value = (f.costs || {})[el.dataset.cost] ?? ''; });
@@ -145,7 +157,7 @@
     }
 
     document.querySelectorAll('#fileForm input, #fileForm select').forEach(el => {
-      if (!['fdBroker', 'fdGoodsOrig', 'fdGoodsSar'].includes(el.id)) el.disabled = !editable;
+      if (!['fdGoodsOrig', 'fdGoodsSar'].includes(el.id)) el.disabled = !editable;
     });
     $('fdVatBtn').classList.toggle('hide', !editable);
     $('fdSaveBtn').classList.toggle('hide', !editable);
@@ -165,6 +177,11 @@
     FIELDS.forEach(k => { f[k] = $('fd_' + k).value; });
     document.querySelectorAll('#fdDocs [data-doc]').forEach(el => { f.docs[el.dataset.doc] = el.checked; });
     document.querySelectorAll('#fdCosts [data-cost]').forEach(el => { f.costs[el.dataset.cost] = el.value; });
+    f.declarations = current.declarations.map((d, i) => ({
+      no: d.no,
+      date: ($(`fdDecls`).querySelector(`[data-decl="${i}"][data-k="date"]`) || {}).value || '',
+      release: ($(`fdDecls`).querySelector(`[data-decl="${i}"][data-k="release"]`) || {}).value || ''
+    }));
     return f;
   }
 
@@ -177,6 +194,10 @@
     $('fdLoad').textContent = c.goods ? (c.load * 100).toFixed(1) + '%' : '—';
     $('fdLanded').textContent = sar(c.landed);
     $('fdDocsCount').textContent = `${Object.values(form.docs).filter(Boolean).length}/${DOCS.length}`;
+    form.declarations.forEach((d, i) => {
+      const cell = $('declTag' + i);
+      if (cell) cell.innerHTML = d.release ? '<span class="tag ok">مفسوح</span>' : d.date ? '<span class="tag wait">تحت التخليص</span>' : '<span class="tag gray">بانتظار التاريخ</span>';
+    });
 
     // توزيع المصاريف على الموديلات حسب القيمة (أو الكمية إذا ما فيه أسعار)
     const totalVal = current.lines.reduce((t, l) => t + l.value, 0);
