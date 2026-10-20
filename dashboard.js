@@ -32,7 +32,7 @@
 
   function render(d) {
     const dt = new Date(d.today + 'T00:00:00');
-    $('dbDate').textContent = `${DAYS[dt.getDay()]} ${d.today} — نظرة على الأوامر والشحن والحاويات والتخليص`;
+    $('dbDate').textContent = `نظرة على الأوامر والشحن والحاويات والتخليص حتى ${DAYS[dt.getDay()]}`;
 
     const k = d.kpis;
     const pct = k.orderedQty ? Math.round(k.shippedQty / k.orderedQty * 100) : 0;

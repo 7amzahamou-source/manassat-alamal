@@ -125,18 +125,37 @@ function showLogin(message) {
   $('username').focus();
 }
 
+/** مجموعات القائمة الجانبية (الترتيب هنا = ترتيب الظهور) */
+const NAV_GROUPS = [
+  ['عام', ['dashboard', 'report']],
+  ['المشتريات', ['orders', 'models']],
+  ['الشحن', ['shipments', 'shipped', 'rates']],
+  ['الحاويات والتخليص', ['containers', 'receive', 'files']],
+  ['الإدارة', ['users']]
+];
+const DAY_NAMES = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت'];
+
 function showApp(user) {
   currentUser = user;
+  const first = String(user.name || '').trim().split(/\s+/)[0] || user.name;
+  const h = new Date().getHours();
   $('userName').textContent = user.name;
-  $('userRole').textContent = isAdmin() ? 'مدير' : (user.dept || 'موظف');
+  $('userRole').textContent = isAdmin() ? 'مدير المنصة' : (user.dept || 'موظف');
+  $('userAvatar').textContent = String(user.name || '؟').trim().charAt(0).toUpperCase();
+  $('greetText').textContent = (h < 12 ? 'صباح الخير، ' : 'مساء الخير، ') + first;
+  $('todayText').textContent = DAY_NAMES[new Date().getDay()] + ' ' + today();
   buildNav();
 }
 
-/** يبني القائمة من الصفحات المسموحة فقط */
+/** يبني القائمة من الصفحات المسموحة فقط، مقسّمة بمجموعات */
 function buildNav() {
   const list = myPages();
-  $('sideNav').innerHTML = list.map(p =>
-    `<button type="button" data-page="${p.key}">${p.icon || ''}<span>${esc(p.title)}</span></button>`).join('');
+  const grouped = NAV_GROUPS.map(([title, keys]) => [title, list.filter(p => keys.includes(p.key))]);
+  const other = list.filter(p => !NAV_GROUPS.some(([, keys]) => keys.includes(p.key)));
+  if (other.length) grouped.push(['أخرى', other]);
+  $('sideNav').innerHTML = grouped.filter(([, pages]) => pages.length).map(([title, pages]) =>
+    `<div class="nav-group">${title}</div>` + pages.map(p =>
+      `<button type="button" data-page="${p.key}">${p.icon || ''}<span>${esc(p.title)}</span></button>`).join('')).join('');
   document.body.classList.toggle('single-page', list.length <= 1);
   PAGES.forEach(p => $('page-' + p.key).classList.add('hide'));
   showScreen('appScreen');
@@ -157,6 +176,8 @@ function goTo(key) {
   $('noAccess').classList.add('hide');
   PAGES.forEach(p => $('page-' + p.key).classList.toggle('hide', p.key !== key));
   document.querySelectorAll('#sideNav [data-page]').forEach(b => b.classList.toggle('active', b.dataset.page === key));
+  document.body.classList.remove('nav-open');
+  window.scrollTo(0, 0);
   page.show();
 }
 
@@ -207,6 +228,9 @@ document.addEventListener('DOMContentLoaded', () => {
   $('loginForm').addEventListener('submit', handleLogin);
   $('logoutBtn').addEventListener('click', handleLogout);
   $('workflowBtn').addEventListener('click', () => goTo('workflow'));
+  $('menuBtn').addEventListener('click', () => document.body.classList.toggle('nav-open'));
+  $('scrim').addEventListener('click', () => document.body.classList.remove('nav-open'));
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') document.body.classList.remove('nav-open'); });
   $('sideNav').addEventListener('click', e => {
     const btn = e.target.closest('[data-page]');
     if (btn) goTo(btn.dataset.page);
