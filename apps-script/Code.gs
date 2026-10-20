@@ -1,6 +1,6 @@
 /**
  * منصة العمل — الخادم
- * الخطوة 14: تقرير الإدارة العليا + أسعار الشحن
+ * الخطوة 16: أسعار الشحن إلى الدمام وجدة ورابغ
  */
 
 const SESSION_HOURS = 6;
@@ -1548,6 +1548,9 @@ function dashboard_(data) {
    أسعار الشحن (إدخال يومي)
 ========================================= */
 
+/** موانئ الوصول في أسعار الشحن */
+const RATE_DESTS = ['dmm', 'jed', 'rbg'];   // الدمام، جدة، رابغ
+
 const DEFAULT_PORTS = ['NINGBO', 'SHANGHAI', 'SHEKOU', 'NANSHA', 'QINGDAO', 'XIAMEN', 'TIANJIN', 'HONG KONG'];
 
 function cleanPort_(p) {
@@ -1589,14 +1592,14 @@ function saveRates_(data) {
     const port = cleanPort_(p);
     if (!port) return;
     const v = {};
-    ['dmm', 'jed'].forEach(k => {
+    RATE_DESTS.forEach(k => {
       const raw = input[p] && input[p][k];
       if (raw === '' || raw == null) return;
       const n = Number(String(raw).replace(/,/g, ''));
       if (!(n > 0) || n > 100000) throw new Error('سعر غير صحيح لميناء ' + port);
       v[k] = Math.round(n);
     });
-    if (v.dmm || v.jed) prices[port] = v;
+    if (Object.keys(v).length) prices[port] = v;
   });
   if (!Object.keys(prices).length) throw new Error('أدخل سعرًا واحدًا على الأقل');
 
@@ -1626,14 +1629,18 @@ function latestRates_(rates) {
   const out = {};
   rates.forEach(r => Object.keys(r.prices).forEach(p => {
     out[p] = out[p] || {};
-    ['dmm', 'jed'].forEach(k => {
+    RATE_DESTS.forEach(k => {
       const v = r.prices[p][k];
       if (!v) return;
       const cur = out[p][k];
       out[p][k] = { value: v, date: r.date, prev: cur ? cur.value : null, prevDate: cur ? cur.date : '' };
     });
   }));
-  return Object.keys(out).sort().map(p => ({ port: p, dmm: out[p].dmm || null, jed: out[p].jed || null }));
+  return Object.keys(out).sort().map(p => {
+    const row = { port: p };
+    RATE_DESTS.forEach(k => { row[k] = out[p][k] || null; });
+    return row;
+  });
 }
 
 /* =========================================

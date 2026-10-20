@@ -127,7 +127,7 @@
     const rows = r.latest;
     const price = x => x ? `<b class="num">$${num(x.value)}</b>` : '—';
     return section('rp-rates', '9. أسعار الشحن (USD / حاوية)', r.lastDate ? 'آخر تحديث ' + r.lastDate : 'لم تُسجّل أسعار بعد',
-      ['ميناء الشحن', 'الدمام', 'التغيّر', 'جدة', 'التغيّر', 'تاريخ السعر'], rows,
-      x => `<tr>${td(`<b>${esc(x.port)}</b>`)}${td(price(x.dmm))}${td(change(x.dmm))}${td(price(x.jed))}${td(change(x.jed))}${td(esc([x.dmm && x.dmm.date, x.jed && x.jed.date].filter(Boolean).sort().pop() || '—'))}</tr>`);
+      ['ميناء الشحن'].concat(...RATE_DESTS.map(([, name]) => [name, 'التغيّر']), ['تاريخ السعر']), rows,
+      x => `<tr>${td(`<b>${esc(x.port)}</b>`)}${RATE_DESTS.map(([k]) => td(price(x[k])) + td(change(x[k]))).join('')}${td(esc(RATE_DESTS.map(([k]) => x[k] && x[k].date).filter(Boolean).sort().pop() || '—'))}</tr>`);
   }
 })();

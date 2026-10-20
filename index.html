@@ -166,7 +166,7 @@
           <div class="page-head">
             <div>
               <h1>أسعار الشحن</h1>
-              <p class="sub">سعر الحاوية بالدولار من كل ميناء إلى الدمام وجدة. كل إدخال يُحفظ بتاريخه ويُبنى عليه الرسم البياني.</p>
+              <p class="sub">سعر الحاوية بالدولار من كل ميناء إلى الدمام وجدة ورابغ. كل إدخال يُحفظ بتاريخه ويُبنى عليه الرسم البياني.</p>
             </div>
             <div class="actions">
               <button id="rtRefreshBtn" class="btn">تحديث</button>
@@ -181,7 +181,7 @@
             <p id="rtNote" class="sub small" style="padding:10px 18px 0;margin:0"></p>
             <div class="table-wrap">
               <table class="items rt-in">
-                <thead><tr><th>ميناء الشحن</th><th>الدمام (USD / حاوية)</th><th>جدة (USD / حاوية)</th><th>آخر سعر مسجّل قبل هذا التاريخ</th></tr></thead>
+                <thead><tr><th>ميناء الشحن</th><th>الدمام (USD / حاوية)</th><th>جدة (USD / حاوية)</th><th>رابغ (USD / حاوية)</th><th>آخر سعر مسجّل قبل هذا التاريخ</th></tr></thead>
                 <tbody id="rtIn"></tbody>
               </table>
             </div>
@@ -203,12 +203,12 @@
 
           <div class="card db-card">
             <div class="db-head"><b>آخر الأسعار مقارنة بالسعر السابق</b><span id="rtLastDate" class="sub small"></span></div>
-            <div class="table-wrap"><table class="compact"><thead><tr><th>ميناء الشحن</th><th>الدمام</th><th>التغيّر</th><th>جدة</th><th>التغيّر</th><th>تاريخ آخر سعر</th></tr></thead><tbody id="rtLatest"></tbody></table></div>
+            <div class="table-wrap"><table class="compact"><thead><tr><th>ميناء الشحن</th><th>الدمام</th><th>التغيّر</th><th>جدة</th><th>التغيّر</th><th>رابغ</th><th>التغيّر</th><th>تاريخ آخر سعر</th></tr></thead><tbody id="rtLatest"></tbody></table></div>
           </div>
 
           <div class="card db-card">
             <div class="db-head"><b>سجل الأسعار</b><span class="sub small">اضغط على يوم لتعديله</span></div>
-            <div class="table-wrap"><table class="compact"><thead><tr><th>التاريخ</th><th>الموانئ المسعّرة</th><th>متوسط الدمام</th><th>متوسط جدة</th><th>أدخلها</th></tr></thead><tbody id="rtHist"></tbody></table></div>
+            <div class="table-wrap"><table class="compact"><thead><tr><th>التاريخ</th><th>الموانئ المسعّرة</th><th>متوسط الدمام</th><th>متوسط جدة</th><th>متوسط رابغ</th><th>أدخلها</th></tr></thead><tbody id="rtHist"></tbody></table></div>
           </div>
         </section>
 
@@ -952,7 +952,7 @@
     <option>ZHANGJIAGANG</option><option>NANJING</option><option>HEFEI</option><option>XIAOLAN</option><option>HUZHOU</option>
   </datalist>
   <datalist id="arrivalList">
-    <option>الدمام</option><option>جدة</option><option>الجبيل</option><option>الرياض (الميناء الجاف)</option>
+    <option>الدمام</option><option>جدة</option><option>رابغ</option><option>الجبيل</option><option>الرياض (الميناء الجاف)</option>
   </datalist>
 
   <div id="toast" class="toast" role="status"></div>

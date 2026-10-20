@@ -558,8 +558,8 @@ table.rt-in td:first-child { font-weight: 600; }
 .rt-chart svg { width: 100%; height: auto; display: block; overflow: visible; }
 .rt-legend { display: flex; gap: 16px; font-size: 13px; color: var(--mute); margin-bottom: 6px; }
 .rt-legend i { display: inline-block; width: 14px; height: 3px; border-radius: 2px; vertical-align: middle; margin-inline-end: 6px; }
-.viz { --s1: #2a78d6; --s2: #eb6834; --grid: var(--line); }
-@media (prefers-color-scheme: dark) { .viz { --s1: #3987e5; --s2: #d95926; } }
+.viz { --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --grid: var(--line); }
+@media (prefers-color-scheme: dark) { .viz { --s1: #3987e5; --s2: #d95926; --s3: #199e70; } }
 .rt-tip {
   position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 10px;
   box-shadow: var(--shadow); padding: 8px 10px; font-size: 13px; white-space: nowrap; transform: translate(-50%, -110%);
