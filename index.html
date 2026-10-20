@@ -79,10 +79,124 @@
                 <thead>
                   <tr>
                     <th>رقم الأمر</th><th>التاريخ</th><th>القسم</th><th>المورد</th>
-                    <th>البنود</th><th>الكمية</th><th>الحاويات</th><th>القيمة</th><th>الحالة</th>
+                    <th>البنود</th><th>الكمية</th><th>الحاويات</th><th>القيمة</th><th>الشحن</th><th>الحالة</th>
                   </tr>
                 </thead>
                 <tbody id="ordersBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== صفحة: قاعدة الموديلات ===== -->
+        <section id="page-models" class="page hide">
+          <div class="page-head">
+            <div>
+              <h1>قاعدة الموديلات</h1>
+              <p class="sub">مرجع واحد للموديلات والمصانع وشهادات SASO، وتتعبّى بياناتها تلقائيًا في أوامر الشراء.</p>
+            </div>
+            <div class="actions">
+              <button id="modelsRefreshBtn" class="btn">تحديث</button>
+              <button id="importBtn" class="btn">استيراد من إكسل</button>
+              <button id="newModelBtn" class="btn primary">+ موديل جديد</button>
+            </div>
+          </div>
+
+          <div id="modelStats" class="stats"></div>
+
+          <div class="card">
+            <div class="toolbar">
+              <input id="mSearch" placeholder="ابحث بالموديل أو المصنع أو العلامة أو الوصف">
+              <select id="mFilterDept"></select>
+              <select id="mFilterCert">
+                <option value="">كل الشهادات</option>
+                <option value="attention">تحتاج متابعة</option>
+                <option value="expired">منتهية</option>
+                <option value="soon">تنتهي خلال 30 يوم</option>
+                <option value="ok">صادرة وسارية</option>
+                <option value="none">لا تحتاج</option>
+              </select>
+              <select id="mFilterStatus">
+                <option value="">كل الحالات</option>
+                <option>فعال</option>
+                <option>غير فعال</option>
+              </select>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>الموديل</th><th>القسم</th><th>المصنع</th><th>العلامة</th><th>الوصف</th>
+                    <th>الوحدة</th><th>الكمية / الحاوية</th><th>الشهادة</th><th>الحالة</th>
+                  </tr>
+                </thead>
+                <tbody id="modelsBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== صفحة: طلبات الشحن ===== -->
+        <section id="page-shipments" class="page hide">
+          <div class="page-head">
+            <div>
+              <h1>طلبات الشحن</h1>
+              <p class="sub">الكميات المطلوب شحنها من أوامر الشراء. الحالة تلقائية حسب تاريخ الجاهزية، وبعد التعميد تنتقل إلى البضاعة المشحونة.</p>
+            </div>
+            <div class="actions">
+              <button id="shRefreshBtn" class="btn">تحديث</button>
+              <button id="newShipBtn" class="btn primary">+ طلب شحن جديد</button>
+            </div>
+          </div>
+          <div id="shStats" class="stats"></div>
+          <div class="card">
+            <div class="toolbar">
+              <input id="shSearch" placeholder="ابحث بكود الطلب أو أمر الشراء أو الفاتورة أو الموديل أو الميناء">
+              <select id="shFilterState">
+                <option value="">كل الحالات</option>
+                <option>قيد التصنيع</option>
+                <option>جاهزة للشحن</option>
+              </select>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>كود الطلب</th><th>أمر الشراء</th><th>المورد</th><th>الفاتورة</th><th>ميناء التحميل</th>
+                    <th>الموديلات</th><th>الكمية</th><th>الحاويات</th><th>الجاهزية</th><th>الفحص</th><th>الحالة</th>
+                  </tr>
+                </thead>
+                <tbody id="shBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== صفحة: البضاعة المشحونة ===== -->
+        <section id="page-shipped" class="page hide">
+          <div class="page-head">
+            <div>
+              <h1>البضاعة المشحونة</h1>
+              <p class="sub">الشحنات المعمّدة. كل فاتورة لها رقم تسلسل.</p>
+            </div>
+            <div class="actions">
+              <button id="spRefreshBtn" class="btn">تحديث</button>
+            </div>
+          </div>
+          <div id="spStats" class="stats"></div>
+          <div class="card">
+            <div class="toolbar">
+              <input id="spSearch" placeholder="ابحث بالتسلسل أو الفاتورة أو أمر الشراء أو الموديل أو الوسيط أو المخلص">
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>التسلسل</th><th>الفاتورة</th><th>أمر الشراء</th><th>الموديلات</th><th>الكمية</th><th>الحاويات</th>
+                    <th>تاريخ الشحن</th><th>الوصول المتوقع</th><th>الشحن ← الوصول</th><th>الوسيط</th><th>المخلص</th>
+                  </tr>
+                </thead>
+                <tbody id="spBody"></tbody>
               </table>
             </div>
           </div>
@@ -163,6 +277,9 @@
           </table>
         </div>
 
+        <datalist id="modelsList"></datalist>
+        <p id="certWarn" class="warn hide"></p>
+
         <div class="totals">
           <div><span>إجمالي الكمية</span><b id="totQty">0</b></div>
           <div><span>إجمالي الحاويات</span><b id="totCnt">0</b></div>
@@ -226,12 +343,204 @@
     </form>
   </dialog>
 
+  <!-- ===== نافذة الموديل ===== -->
+  <dialog id="modelDialog" class="narrow">
+    <form id="modelForm">
+      <div class="dlg-head">
+        <h2 id="mTitle"></h2>
+        <span id="mCertTag"></span>
+        <button type="button" class="btn" data-close>إغلاق</button>
+      </div>
+
+      <div class="dlg-body">
+        <div class="grid two">
+          <div><label for="m_code">كود الموديل *</label><input id="m_code" required dir="ltr" placeholder="GWC-18"></div>
+          <div><label for="m_department">القسم</label><select id="m_department"></select></div>
+          <div><label for="m_factory">المصنع / المورد</label><input id="m_factory"></div>
+          <div><label for="m_brand">العلامة التجارية</label><input id="m_brand"></div>
+          <div class="wide"><label for="m_description">الوصف</label><input id="m_description"></div>
+          <div>
+            <label for="m_unit">الوحدة</label>
+            <select id="m_unit"><option>قطعة</option><option>كرتون</option><option>طقم</option><option>كيلوغرام</option><option>متر</option></select>
+          </div>
+          <div><label for="m_perContainer">الكمية في الحاوية الواحدة</label><input id="m_perContainer" type="number" min="0" step="any" placeholder="مثال: 100"></div>
+        </div>
+
+        <h3 class="section-title">شهادة سابر / SASO</h3>
+        <div class="grid three">
+          <div>
+            <label for="m_cert">حالة الشهادة</label>
+            <select id="m_cert"><option>لا تحتاج</option><option>غير مصدرة</option><option>قيد الإصدار</option><option>صادرة</option></select>
+          </div>
+          <div><label for="m_certNo">رقم الشهادة</label><input id="m_certNo" dir="ltr"></div>
+          <div><label for="m_certExp">تاريخ الانتهاء</label><input id="m_certExp" type="date"></div>
+        </div>
+
+        <div class="grid two" style="margin-top:14px">
+          <div>
+            <label for="m_status">حالة الموديل</label>
+            <select id="m_status"><option>فعال</option><option>غير فعال</option></select>
+          </div>
+        </div>
+        <p id="mMeta" class="meta"></p>
+      </div>
+
+      <div class="dlg-foot">
+        <div id="mError" class="error"></div>
+        <button type="button" id="mDeleteBtn" class="btn danger">حذف</button>
+        <button type="submit" id="mSaveBtn" class="btn primary">حفظ</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ===== نافذة الاستيراد من إكسل ===== -->
+  <dialog id="importDialog">
+    <div class="dlg-head">
+      <h2>استيراد موديلات من إكسل</h2>
+      <button type="button" class="btn" data-close>إغلاق</button>
+    </div>
+
+    <div class="dlg-body">
+      <ol class="steps">
+        <li>رتّب الأعمدة في الإكسل بنفس <b>عناوين النموذج</b> (أو حمّل النموذج وعبّيه).</li>
+        <li>ظلّل الجدول كامل <b>مع سطر العناوين</b> وانسخه (<code>Ctrl + C</code>).</li>
+        <li>الصقه في المربع تحت (<code>Ctrl + V</code>) وراجع المعاينة، ثم اضغط استيراد.</li>
+      </ol>
+      <div class="import-cols">
+        <span class="sub small">الأعمدة:</span>
+        <span class="tag gray">كود الموديل *</span><span class="tag gray">القسم</span><span class="tag gray">المصنع</span>
+        <span class="tag gray">العلامة</span><span class="tag gray">الوصف</span><span class="tag gray">الوحدة</span>
+        <span class="tag gray">الكمية في الحاوية</span><span class="tag gray">حالة الشهادة</span>
+        <span class="tag gray">رقم الشهادة</span><span class="tag gray">تاريخ انتهاء الشهادة</span>
+        <button type="button" id="templateBtn" class="btn small">تحميل النموذج</button>
+      </div>
+
+      <textarea id="importText" rows="7" placeholder="الصق الجدول هنا…" dir="auto"></textarea>
+      <p class="sub small">الموديل الموجود بنفس الكود يتحدّث، والجديد يُضاف. حالة الشهادة: لا تحتاج / غير مصدرة / قيد الإصدار / صادرة. التاريخ بصيغة 2027-05-31 أو 31/05/2027.</p>
+
+      <div id="importSummary" class="import-summary hide"></div>
+      <div class="table-wrap" id="importPreviewWrap">
+        <table class="preview">
+          <thead id="importHead"></thead>
+          <tbody id="importBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="dlg-foot">
+      <div id="importError" class="error"></div>
+      <button type="button" id="importRunBtn" class="btn primary" disabled>استيراد</button>
+    </div>
+  </dialog>
+
+  <!-- ===== نافذة طلب شحن جديد ===== -->
+  <dialog id="newShipDialog">
+    <form id="newShipForm">
+      <div class="dlg-head">
+        <h2>طلب شحن جديد</h2>
+        <button type="button" class="btn" data-close>إغلاق</button>
+      </div>
+      <div class="dlg-body">
+        <div class="grid">
+          <div class="wide">
+            <label for="ns_po">أمر الشراء *</label>
+            <select id="ns_po" required></select>
+          </div>
+          <div><label for="ns_invoice">رقم الفاتورة *</label><input id="ns_invoice" required dir="ltr"></div>
+          <div><label for="ns_port">ميناء التحميل *</label><input id="ns_port" list="portsList" required dir="ltr" placeholder="NINGBO" autocomplete="off"></div>
+          <div><label for="ns_ready">تاريخ جاهزية البضاعة *</label><input id="ns_ready" type="date" required></div>
+          <div class="wide"><label for="ns_notes">ملاحظات</label><input id="ns_notes"></div>
+        </div>
+        <p id="nsPoInfo" class="meta"></p>
+
+        <div class="items-head"><h3>الكميات المطلوب شحنها</h3></div>
+        <div class="table-wrap">
+          <table class="items">
+            <thead><tr><th>الموديل</th><th>الوصف</th><th>كمية الأمر</th><th>طُلب سابقًا</th><th>المتاح</th><th>الكمية المطلوبة</th><th>الحاويات</th></tr></thead>
+            <tbody id="nsLines"><tr><td colspan="7" class="empty">اختر أمر الشراء.</td></tr></tbody>
+          </table>
+        </div>
+        <div class="totals">
+          <div><span>إجمالي الكمية</span><b id="nsQty">0</b></div>
+          <div class="grand"><span>إجمالي الحاويات</span><b id="nsCnt">0</b></div>
+        </div>
+      </div>
+      <div class="dlg-foot">
+        <div id="nsError" class="error"></div>
+        <button type="submit" id="nsSaveBtn" class="btn primary">إرسال طلب الشحن</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ===== نافذة بيانات الشحن ===== -->
+  <dialog id="shipDialog">
+    <form id="shipForm">
+      <div class="dlg-head">
+        <h2 id="sdTitle"></h2>
+        <span id="sdState"></span>
+        <button type="button" class="btn" data-close>إغلاق</button>
+      </div>
+      <div class="dlg-body">
+        <div id="sdInfo" class="kv"></div>
+        <div class="table-wrap">
+          <table class="items">
+            <thead><tr><th>الموديل</th><th>الوصف</th><th>الكمية</th><th>الحاويات</th></tr></thead>
+            <tbody id="sdLines"></tbody>
+          </table>
+        </div>
+
+        <h3 class="section-title">بيانات الشحن</h3>
+        <div class="grid">
+          <div><label for="sd_invoiceNo">رقم الفاتورة *</label><input id="sd_invoiceNo" dir="ltr"></div>
+          <div><label for="sd_approvalNo">رقم الاعتماد</label><input id="sd_approvalNo" dir="ltr"></div>
+          <div id="sdReadyWrap"><label for="sd_readyDate">تاريخ الجاهزية</label><input id="sd_readyDate" type="date"></div>
+          <div><label for="sd_forwarder">الوسيط / شركة الشحن</label><input id="sd_forwarder"></div>
+          <div><label for="sd_shipDate">تاريخ الشحن</label><input id="sd_shipDate" type="date"></div>
+          <div><label for="sd_eta">الوصول المتوقع</label><input id="sd_eta" type="date"></div>
+          <div><label for="sd_arrivalPort">ميناء الوصول</label><input id="sd_arrivalPort" list="arrivalList" autocomplete="off"></div>
+          <div><label for="sd_broker">المخلص الجمركي</label><input id="sd_broker"></div>
+          <div><label for="sd_freight">قيمة الشحن</label><input id="sd_freight" type="number" min="0" step="0.01"></div>
+          <div>
+            <label for="sd_freightCurrency">العملة</label>
+            <select id="sd_freightCurrency"><option>USD</option><option>SAR</option><option>CNY</option><option>EUR</option><option>AED</option></select>
+          </div>
+          <div>
+            <label for="sd_inspection">فحص ما قبل الشحن</label>
+            <select id="sd_inspection"><option>لم يُفحص</option><option>مجتاز</option><option>مرفوض</option><option>معفى</option></select>
+          </div>
+          <div><label for="sd_inspectionNote">تاريخ الفحص / الجهة</label><input id="sd_inspectionNote" placeholder="مثال: 2026-10-01 — SGS"></div>
+          <div class="wide"><label for="sd_notes">ملاحظات</label><input id="sd_notes"></div>
+        </div>
+        <p id="sdHint" class="note hide">لتعميد الشحن لازم: تاريخ الشحن، ميناء الوصول، رقم الفاتورة، رقم الاعتماد، وفحص «مجتاز» أو «معفى».</p>
+        <p id="sdMeta" class="meta"></p>
+      </div>
+      <div class="dlg-foot">
+        <div id="sdError" class="error"></div>
+        <button type="button" id="sdDeleteBtn" class="btn danger">حذف الطلب</button>
+        <button type="button" id="sdUnconfirmBtn" class="btn danger">إلغاء التعميد</button>
+        <button type="submit" id="sdSaveBtn" class="btn">حفظ</button>
+        <button type="button" id="sdConfirmBtn" class="btn primary">تعميد الشحن</button>
+      </div>
+    </form>
+  </dialog>
+
+  <datalist id="portsList">
+    <option>NINGBO</option><option>SHANGHAI</option><option>SHEKOU</option><option>SHENZHEN</option><option>NANSHA</option>
+    <option>HONG KONG</option><option>QINGDAO</option><option>ZHUHAI</option><option>XIAMEN</option><option>TIANJIN</option>
+    <option>ZHANGJIAGANG</option><option>NANJING</option><option>HEFEI</option><option>XIAOLAN</option><option>HUZHOU</option>
+  </datalist>
+  <datalist id="arrivalList">
+    <option>الدمام</option><option>جدة</option><option>الجبيل</option><option>الرياض (الميناء الجاف)</option>
+  </datalist>
+
   <div id="toast" class="toast" role="status"></div>
 
   <script src="config.js"></script>
   <script src="api.js"></script>
   <script src="app.js"></script>
   <script src="orders.js"></script>
+  <script src="models.js"></script>
+  <script src="shipping.js"></script>
   <script src="users.js"></script>
 </body>
 </html>

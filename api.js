@@ -44,5 +44,20 @@ const API = {
   listOrders()     { return this.call('listOrders',   { token: this.token() }); },
   saveOrder(order) { return this.call('saveOrder',    { token: this.token(), order }); },
   approveOrder(id) { return this.call('approveOrder', { token: this.token(), id }); },
-  deleteOrder(id)  { return this.call('deleteOrder',  { token: this.token(), id }); }
+  deleteOrder(id)  { return this.call('deleteOrder',  { token: this.token(), id }); },
+
+  // قاعدة الموديلات
+  listModels()       { return this.call('listModels',   { token: this.token() }); },
+  saveModel(model)   { return this.call('saveModel',    { token: this.token(), model }); },
+  deleteModel(id)    { return this.call('deleteModel',  { token: this.token(), id }); },
+  importModels(rows) { return this.call('importModels', { token: this.token(), rows }); },
+
+  // الشحن
+  listShipments(scope)  { return this.call('listShipments',     { token: this.token(), scope }); },
+  shipmentOptions()     { return this.call('shipmentOptions',   { token: this.token() }); },
+  createShipment(s)     { return this.call('createShipment',    { token: this.token(), shipment: s }); },
+  updateShipment(s)     { return this.call('updateShipment',    { token: this.token(), shipment: s }); },
+  confirmShipment(s)    { return this.call('confirmShipment',   { token: this.token(), shipment: s }); },
+  unconfirmShipment(id) { return this.call('unconfirmShipment', { token: this.token(), id }); },
+  deleteShipment(id)    { return this.call('deleteShipment',    { token: this.token(), id }); }
 };

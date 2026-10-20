@@ -1,7 +1,7 @@
 /**
  * منصة العمل — الأساس
  * الدخول والخروج، القائمة حسب الصلاحيات، والأدوات المشتركة.
- * كل صفحة في ملف خاص (orders.js، users.js) وتسجّل نفسها بـ registerPage.
+ * كل صفحة في ملف خاص (orders.js، models.js، shipping.js، users.js) وتسجّل نفسها بـ registerPage.
  */
 const $ = id => document.getElementById(id);
 
@@ -15,6 +15,9 @@ const LEVEL_RANK = { none: 0, view: 1, edit: 2, full: 3 };
 /** أيقونات القائمة */
 const ICONS = {
   orders: '<svg viewBox="0 0 24 24"><path d="M6 2h9l5 5v15H6z"/><path d="M14 2v6h6M9 13h7M9 17h5"/></svg>',
+  models: '<svg viewBox="0 0 24 24"><path d="M12 2l9 5-9 5-9-5z"/><path d="M3 12l9 5 9-5M3 17l9 5 9-5"/></svg>',
+  shipments: '<svg viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>',
+  shipped: '<svg viewBox="0 0 24 24"><path d="M2 20h20"/><path d="M4 17l-1-5h18l-2 5"/><path d="M8 12V7h8v5"/></svg>',
   users: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 21c0-3.5 3-5.5 7-5.5s7 2 7 5.5"/><path d="M16 4a3.5 3.5 0 0 1 0 7M22 21c0-3-2-5-5-5.4"/></svg>'
 };
 
@@ -28,6 +31,19 @@ const num = n => new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).fo
 const money = (n, cur) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0) + (cur ? ' ' + cur : '');
 const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
 const options = (list, first) => (first !== undefined ? `<option value="">${first}</option>` : '') + list.map(x => `<option>${esc(x)}</option>`).join('');
+
+/** حالة شهادة SASO للموديل: { label, cls, attention } */
+function certInfo(m) {
+  if (!m || !m.cert || m.cert === 'لا تحتاج') return { label: 'لا تحتاج', cls: 'gray', key: 'none', attention: false };
+  if (m.cert === 'صادرة') {
+    if (m.certExp && m.certExp < today()) return { label: 'منتهية', cls: 'bad', key: 'expired', attention: true };
+    if (m.certExp && (new Date(m.certExp) - new Date(today())) / 864e5 <= 30) {
+      return { label: 'تنتهي ' + m.certExp, cls: 'wait', key: 'soon', attention: true };
+    }
+    return { label: 'صادرة', cls: 'ok', key: 'ok', attention: false };
+  }
+  return { label: m.cert, cls: m.cert === 'قيد الإصدار' ? 'wait' : 'bad', key: 'pending', attention: true };
+}
 
 function toast(message) {
   const t = $('toast');

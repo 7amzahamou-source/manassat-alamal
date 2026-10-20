@@ -203,3 +203,50 @@ input:disabled { cursor: not-allowed; }
   .perm-row { flex-direction: column; align-items: stretch; gap: 6px; }
   .perm-row select { width: 100%; }
 }
+
+/* ===== قاعدة الموديلات ===== */
+.grid.three { grid-template-columns: repeat(3, 1fr); }
+.grid.two .wide { grid-column: span 2; }
+#modelsBody tr[data-id] { cursor: pointer; }
+#modelsBody tr[data-id]:hover { background: var(--acc-soft); }
+td.desc { white-space: normal; min-width: 200px; max-width: 320px; }
+.tag.bad { background: var(--bad-soft); color: var(--bad); }
+.warn { background: var(--wait-soft); color: var(--wait); border-radius: 10px; padding: 8px 12px; margin: 10px 0 0; font-size: 14px; }
+
+/* الاستيراد */
+textarea {
+  width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--panel); font: 13px/1.5 ui-monospace, Consolas, monospace; resize: vertical;
+}
+textarea:focus { outline: none; border-color: var(--acc); box-shadow: 0 0 0 3px var(--acc-soft); }
+.steps { margin: 0 0 12px; padding-inline-start: 20px; color: var(--ink); }
+.steps li { margin-bottom: 4px; }
+.steps code { background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 0 6px; font-size: 13px; }
+.import-cols { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-bottom: 12px; }
+.import-summary { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 10px; }
+table.preview { font-size: 13px; }
+table.preview td, table.preview th { padding: 7px 10px; }
+table.preview tr.bad td { background: var(--bad-soft); }
+#importPreviewWrap { max-height: 320px; overflow: auto; border: 1px solid var(--line); border-radius: 10px; }
+#importPreviewWrap:has(tbody:empty) { display: none; }
+
+@media (max-width: 800px) {
+  .grid.three { grid-template-columns: 1fr; }
+  .grid.two .wide { grid-column: auto; }
+}
+
+/* ===== الشحن ===== */
+.progress { display: flex; align-items: center; gap: 8px; min-width: 120px; }
+.progress .bar { flex: 1; height: 7px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.progress .bar i { display: block; height: 100%; background: var(--acc); }
+.progress .num { font-size: 13px; color: var(--mute); min-width: 34px; }
+#shBody tr[data-id], #spBody tr[data-id] { cursor: pointer; }
+#shBody tr[data-id]:hover, #spBody tr[data-id]:hover { background: var(--acc-soft); }
+.kv { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px 16px; margin-bottom: 16px; }
+.kv div { min-width: 0; }
+.kv small { display: block; color: var(--mute); font-size: 12px; }
+.kv b { font-weight: 500; overflow-wrap: anywhere; }
+td.models { white-space: normal; min-width: 140px; max-width: 260px; }
+table.items input.qty-in { min-width: 100px; }
+.serial { font-size: 16px; font-variant-numeric: tabular-nums; }
+@media (max-width: 800px) { .kv { grid-template-columns: 1fr 1fr; } }

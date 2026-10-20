@@ -7,10 +7,22 @@
   let editing = null;
   let items = [];
   let readOnly = false;
+  let models = [];      // قاعدة الموديلات للتعبئة التلقائية
 
   const statusTag = s => `<span class="tag ${s === 'معتمد' ? 'ok' : 'wait'}">${esc(s)}</span>`;
   const containersOf = o => (o.items || []).reduce((s, i) => s + (Number(i.containers) || 0), 0);
   const myDept = () => (isAdmin() ? '' : (currentUser.dept || ''));
+
+  /** تقدم الشحن: المشحون من الكمية المطلوبة */
+  function shipProgress(o) {
+    const total = Number(o.totalQty) || 0;
+    const shipped = Number(o.shippedQty) || 0;
+    const requested = Number(o.requestedQty) || 0;
+    if (!total || (!requested && o.status !== 'معتمد')) return '<span class="sub">—</span>';
+    const pct = Math.min(100, Math.round(shipped / total * 100));
+    const title = `مشحون ${num(shipped)} — طلب شحن ${num(requested)} — من ${num(total)}`;
+    return `<div class="progress" title="${title}"><div class="bar"><i style="width:${pct}%"></i></div><span class="num">${pct}%</span></div>`;
+  }
 
   registerPage({
     key: 'orders',
@@ -44,6 +56,9 @@
       const { n, f } = e.target.dataset;
       if (n === undefined) return;
       items[n][f] = e.target.value;
+      if (f === 'containers') items[n]._cManual = e.target.value !== '';
+      if (f === 'model') applyModel(Number(n));
+      if (f === 'qty') autoContainers(Number(n));
       calcTotals();
     });
     $('itemsBody').addEventListener('click', e => {
@@ -63,18 +78,59 @@
     $('filterDept').value = '';
     $('ordersSub').textContent = dept ? 'أوامر ' + dept : 'إدخال ومتابعة أوامر الشراء واعتمادها.';
     load();
+    if (can('orders', 'edit')) loadModels();
+  }
+
+  /* ===== الربط مع قاعدة الموديلات ===== */
+
+  async function loadModels() {
+    try {
+      const result = await API.listModels();
+      models = (result.models || []).filter(m => m.status !== 'غير فعال');
+    } catch (err) {
+      models = [];
+    }
+    $('modelsList').innerHTML = models.map(m =>
+      `<option value="${esc(m.code)}">${esc([m.brand, m.description].filter(Boolean).join(' — '))}</option>`).join('');
+  }
+
+  const findModel = code => models.find(m => m.code.toLowerCase() === String(code || '').trim().toLowerCase());
+
+  /** لما يطابق الموديل المكتوب موديلًا في القاعدة: نعبّي الوصف والمورد والقسم والحاويات */
+  function applyModel(n) {
+    const m = findModel(items[n].model);
+    if (!m) return;
+    items[n].model = m.code;
+    if (!items[n].description) {
+      items[n].description = [m.brand, m.description].filter(Boolean).join(' — ');
+      const d = $('desc' + n);
+      if (d) d.value = items[n].description;
+    }
+    if (!$('f_supplier').value && m.factory) $('f_supplier').value = m.factory;
+    if (!$('f_department').value && m.department && !$('f_department').disabled) $('f_department').value = m.department;
+    autoContainers(n);
+  }
+
+  /** الحاويات = الكمية ÷ الكمية في الحاوية (مقرّبة لأعلى)، إلا إذا كتبها المستخدم بنفسه */
+  function autoContainers(n) {
+    const i = items[n];
+    const m = findModel(i.model);
+    if (!m || !m.perContainer || i._cManual) return;
+    i.containers = Number(i.qty) > 0 ? Math.ceil(Number(i.qty) / m.perContainer) : '';
+    const c = $('cnt' + n);
+    if (c) c.value = i.containers;
   }
 
   async function load() {
     orders = [];
     $('stats').innerHTML = '';
-    $('ordersBody').innerHTML = '<tr><td colspan="9" class="empty">جارٍ تحميل الأوامر…</td></tr>';
+    $('ordersBody').innerHTML = '<tr><td colspan="10" class="empty">جارٍ تحميل الأوامر…</td></tr>';
     try {
       const result = await API.listOrders();
       orders = result.orders || [];
       render();
     } catch (err) {
-      $('ordersBody').innerHTML = `<tr><td colspan="9" class="empty">${esc(err.message)}</td></tr>`;
+      $('ordersBody').innerHTML = `<tr><td colspan="10" class="empty">${esc(err.message)}</td></tr>`;
     }
   }
 
@@ -101,7 +157,7 @@
     if (!list.length) {
       const msg = orders.length ? 'لا توجد أوامر مطابقة للبحث.'
         : can('orders', 'edit') ? 'لا توجد أوامر بعد. اضغط «أمر شراء جديد» لإضافة أول أمر.' : 'لا توجد أوامر بعد.';
-      $('ordersBody').innerHTML = `<tr><td colspan="9" class="empty">${msg}</td></tr>`;
+      $('ordersBody').innerHTML = `<tr><td colspan="10" class="empty">${msg}</td></tr>`;
       return;
     }
 
@@ -115,6 +171,7 @@
         <td class="num">${num(o.totalQty)}</td>
         <td class="num">${num(containersOf(o)) || '—'}</td>
         <td class="num">${o.totalValue ? money(o.totalValue, o.currency) : '—'}</td>
+        <td>${shipProgress(o)}</td>
         <td>${statusTag(o.status)}</td>
       </tr>`).join('');
   }
@@ -149,7 +206,7 @@
     }
     $('dlgMeta').textContent = meta;
 
-    items = (o.items || []).map(i => ({ ...i }));
+    items = (o.items || []).map(i => ({ ...i, _cManual: Number(i.containers) > 0 }));
     if (!items.length) items.push({});
     drawItems();
 
@@ -161,11 +218,11 @@
   function drawItems() {
     $('itemsBody').innerHTML = items.map((i, n) => `
       <tr>
-        <td><input data-n="${n}" data-f="model" class="w-model" value="${esc(i.model)}"></td>
-        <td><input data-n="${n}" data-f="description" class="w-desc" value="${esc(i.description)}"></td>
+        <td><input data-n="${n}" data-f="model" class="w-model" list="modelsList" autocomplete="off" value="${esc(i.model)}"></td>
+        <td><input data-n="${n}" data-f="description" id="desc${n}" class="w-desc" value="${esc(i.description)}"></td>
         <td><input data-n="${n}" data-f="qty" type="number" min="0" step="any" value="${esc(i.qty)}"></td>
         <td><input data-n="${n}" data-f="price" type="number" min="0" step="any" value="${esc(i.price)}"></td>
-        <td><input data-n="${n}" data-f="containers" type="number" min="0" step="1" value="${esc(i.containers)}"></td>
+        <td><input data-n="${n}" data-f="containers" id="cnt${n}" type="number" min="0" step="1" value="${esc(i.containers)}"></td>
         <td class="num" id="line${n}"></td>
         <td>${readOnly ? '' : `<button type="button" class="btn small danger" data-remove="${n}" aria-label="حذف البند">✕</button>`}</td>
       </tr>`).join('');
@@ -186,6 +243,12 @@
     $('totQty').textContent = num(qty);
     $('totCnt').textContent = num(cnt);
     $('totVal').textContent = money(val, $('f_currency').value);
+
+    // تنبيه شهادات SASO للموديلات المختارة
+    const warn = items.map(i => findModel(i.model)).filter(m => m && certInfo(m).attention)
+      .map(m => `${m.code} (${certInfo(m).label})`);
+    $('certWarn').textContent = warn.length ? '⚠️ شهادة SASO تحتاج متابعة: ' + [...new Set(warn)].join('، ') : '';
+    $('certWarn').classList.toggle('hide', !warn.length);
   }
 
   function readForm() {
