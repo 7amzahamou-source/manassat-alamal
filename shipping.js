@@ -145,7 +145,8 @@
     $('spStats').innerHTML = [
       ['عدد الفواتير', invoices],
       ['الكمية المشحونة', num(shipped.reduce((a, s) => a + (Number(s.totalQty) || 0), 0))],
-      ['الحاويات', num(shipped.reduce((a, s) => a + (Number(s.totalContainers) || 0), 0))],
+      ['الحاويات (مستلمة)', num(shipped.reduce((a, s) => a + (Number(s.containerRows || s.totalContainers) || 0), 0)) +
+        ' <small class="sub">(' + num(shipped.reduce((a, s) => a + (Number(s.receivedContainers) || 0), 0)) + ')</small>'],
       ['في الطريق (لم يحن موعد وصولها)', shipped.filter(s => s.eta && s.eta >= t).length]
     ].map(([l, v]) => `<div class="stat"><small>${l}</small><b>${v}</b></div>`).join('');
 
@@ -160,7 +161,7 @@
         <td>${esc(s.poNo)}</td>
         <td class="models">${esc(modelsOf(s))}</td>
         <td class="num">${num(s.totalQty)}</td>
-        <td class="num">${num(s.totalContainers) || '—'}</td>
+        <td class="num">${num(s.containerRows || s.totalContainers) || '—'} <span class="sub">(${num(s.receivedContainers)})</span></td>
         <td>${esc(s.shipDate || '—')}</td>
         <td>${esc(s.eta || '—')}</td>
         <td>${esc(s.port)} ← ${esc(s.arrivalPort || '—')}</td>

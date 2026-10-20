@@ -59,5 +59,13 @@ const API = {
   updateShipment(s)     { return this.call('updateShipment',    { token: this.token(), shipment: s }); },
   confirmShipment(s)    { return this.call('confirmShipment',   { token: this.token(), shipment: s }); },
   unconfirmShipment(id) { return this.call('unconfirmShipment', { token: this.token(), id }); },
-  deleteShipment(id)    { return this.call('deleteShipment',    { token: this.token(), id }); }
+  deleteShipment(id)    { return this.call('deleteShipment',    { token: this.token(), id }); },
+
+  // الحاويات
+  listContainers()      { return this.call('listContainers',   { token: this.token() }); },
+  updateContainer(c)    { return this.call('updateContainer',  { token: this.token(), container: c }); },
+  addContainer(id)      { return this.call('addContainer',     { token: this.token(), id }); },
+  deleteContainer(id)   { return this.call('deleteContainer',  { token: this.token(), id }); },
+  findContainer(q)      { return this.call('findContainer',    { token: this.token(), q }); },
+  receiveContainer(r)   { return this.call('receiveContainer', { token: this.token(), receipt: r }); }
 };

@@ -250,3 +250,25 @@ td.models { white-space: normal; min-width: 140px; max-width: 260px; }
 table.items input.qty-in { min-width: 100px; }
 .serial { font-size: 16px; font-variant-numeric: tabular-nums; }
 @media (max-width: 800px) { .kv { grid-template-columns: 1fr 1fr; } }
+
+/* ===== الحاويات والاستلام ===== */
+.stats.five { grid-template-columns: repeat(5, 1fr); }
+.stat.alert b { color: var(--bad); }
+#cnBody tr[data-id] { cursor: pointer; }
+#cnBody tr[data-id]:hover { background: var(--acc-soft); }
+.muted { color: var(--mute); }
+.receive-wrap { max-width: 720px; margin: 20px auto 0; text-align: center; }
+.receive-wrap h1 { margin: 0 0 4px; font-size: 26px; }
+.big-input { font-size: 22px; padding: 14px 18px; text-align: center; letter-spacing: 1px; margin-top: 8px; }
+#rcResults { margin-top: 18px; text-align: right; display: grid; gap: 12px; }
+.rc-card { padding: 18px 20px; }
+.rc-card h3 { margin: 0; font-size: 20px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.rc-card .kv { margin: 12px 0; }
+.rc-form { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; align-items: end; }
+.rc-form .wide { grid-column: span 2; }
+.rc-done { background: var(--ok-soft); color: var(--ok); border-radius: 10px; padding: 10px 14px; }
+@media (max-width: 800px) {
+  .stats.five { grid-template-columns: 1fr 1fr; }
+  .rc-form { grid-template-columns: 1fr; }
+  .rc-form .wide { grid-column: auto; }
+}

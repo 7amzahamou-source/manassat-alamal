@@ -192,13 +192,65 @@
               <table>
                 <thead>
                   <tr>
-                    <th>التسلسل</th><th>الفاتورة</th><th>أمر الشراء</th><th>الموديلات</th><th>الكمية</th><th>الحاويات</th>
+                    <th>التسلسل</th><th>الفاتورة</th><th>أمر الشراء</th><th>الموديلات</th><th>الكمية</th><th>الحاويات (مستلمة)</th>
                     <th>تاريخ الشحن</th><th>الوصول المتوقع</th><th>الشحن ← الوصول</th><th>الوسيط</th><th>المخلص</th>
                   </tr>
                 </thead>
                 <tbody id="spBody"></tbody>
               </table>
             </div>
+          </div>
+        </section>
+
+        <!-- ===== صفحة: متابعة الحاويات ===== -->
+        <section id="page-containers" class="page hide">
+          <div class="page-head">
+            <div>
+              <h1>متابعة الحاويات</h1>
+              <p class="sub">تُنشأ سطور الحاويات تلقائيًا عند تعميد الشحن. عبّئ رقم الحاوية وتاريخ التفريغ والأيام المجانية لمتابعة الأرضيات والإرجاع.</p>
+            </div>
+            <div class="actions">
+              <button id="cnRefreshBtn" class="btn">تحديث</button>
+            </div>
+          </div>
+          <div id="cnStats" class="stats five"></div>
+          <div class="card">
+            <div class="toolbar">
+              <input id="cnSearch" placeholder="ابحث برقم الحاوية أو التسلسل أو الفاتورة أو أمر الشراء أو الموديل">
+              <select id="cnFilterState">
+                <option value="">كل الحالات</option>
+                <option value="open">غير مستلمة</option>
+                <option>في الطريق</option>
+                <option>في الميناء</option>
+                <option>استلمت</option>
+                <option>أُعيد الفارغ</option>
+                <option value="alert">أيام مجانية تنتهي / متأخرة</option>
+                <option value="noNumber">بدون رقم حاوية</option>
+              </select>
+              <select id="cnFilterWh"></select>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>التسلسل</th><th>#</th><th>رقم الحاوية</th><th>الفاتورة</th><th>أمر الشراء</th><th>الموديل</th>
+                    <th>الكمية</th><th>ميناء الوصول</th><th>التفريغ</th><th>الأيام المجانية</th><th>المستودع</th>
+                    <th>الاستلام</th><th>إرجاع الفارغ</th><th>الحالة</th>
+                  </tr>
+                </thead>
+                <tbody id="cnBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== صفحة: استلام الحاويات (للمستودع) ===== -->
+        <section id="page-receive" class="page hide">
+          <div class="receive-wrap">
+            <h1>استلام الحاويات</h1>
+            <p class="sub">اكتب رقم الحاوية (4 أرقام على الأقل)، ثم سجّل الاستلام.</p>
+            <input id="rcSearch" class="big-input" placeholder="رقم الحاوية" autocomplete="off" dir="ltr">
+            <div id="rcResults"></div>
           </div>
         </section>
 
@@ -524,6 +576,48 @@
     </form>
   </dialog>
 
+  <!-- ===== نافذة الحاوية ===== -->
+  <dialog id="cntDialog">
+    <form id="cntForm">
+      <div class="dlg-head">
+        <h2 id="cdTitle"></h2>
+        <span id="cdState"></span>
+        <button type="button" class="btn" data-close>إغلاق</button>
+      </div>
+      <div class="dlg-body">
+        <div id="cdInfo" class="kv"></div>
+        <div id="cdFree" class="note hide"></div>
+        <div class="grid">
+          <div><label for="cd_containerNo">رقم الحاوية</label><input id="cd_containerNo" dir="ltr" placeholder="MSCU1234567" autocomplete="off"></div>
+          <div>
+            <label for="cd_size">الحجم</label>
+            <select id="cd_size"><option value="">—</option><option>20</option><option>40</option><option>40HC</option><option>45</option></select>
+          </div>
+          <div><label for="cd_model">الموديل</label><input id="cd_model" dir="ltr" list="cdModels" autocomplete="off"></div>
+          <div><label for="cd_qty">الكمية</label><input id="cd_qty" type="number" min="0" step="any"></div>
+          <div class="wide"><label for="cd_spareParts">قطع غيار</label><input id="cd_spareParts"></div>
+          <div><label for="cd_arrivalPort">ميناء الوصول</label><input id="cd_arrivalPort" list="arrivalList" autocomplete="off"></div>
+          <div><label for="cd_dischargeDate">تاريخ التفريغ</label><input id="cd_dischargeDate" type="date"></div>
+          <div><label for="cd_freeDays">الأيام المجانية</label><input id="cd_freeDays" type="number" min="0" step="1" placeholder="مثال: 14"></div>
+          <div><label for="cd_warehouse">المستودع</label><input id="cd_warehouse" list="whList" autocomplete="off"></div>
+          <div><label for="cd_receivedDate">تاريخ الاستلام</label><input id="cd_receivedDate" type="date"></div>
+          <div><label for="cd_receivedQty">الكمية المستلمة</label><input id="cd_receivedQty" type="number" min="0" step="any"></div>
+          <div><label for="cd_emptyReturnDate">تاريخ إرجاع الفارغ</label><input id="cd_emptyReturnDate" type="date"></div>
+          <div class="wide"><label for="cd_notes">ملاحظات</label><input id="cd_notes"></div>
+        </div>
+        <datalist id="cdModels"></datalist>
+        <p id="cdMeta" class="meta"></p>
+      </div>
+      <div class="dlg-foot">
+        <div id="cdError" class="error"></div>
+        <button type="button" id="cdDeleteBtn" class="btn danger">حذف الحاوية</button>
+        <button type="button" id="cdAddBtn" class="btn">+ حاوية لنفس الشحنة</button>
+        <button type="submit" id="cdSaveBtn" class="btn primary">حفظ</button>
+      </div>
+    </form>
+  </dialog>
+
+  <datalist id="whList"></datalist>
   <datalist id="portsList">
     <option>NINGBO</option><option>SHANGHAI</option><option>SHEKOU</option><option>SHENZHEN</option><option>NANSHA</option>
     <option>HONG KONG</option><option>QINGDAO</option><option>ZHUHAI</option><option>XIAMEN</option><option>TIANJIN</option>
@@ -541,6 +635,7 @@
   <script src="orders.js"></script>
   <script src="models.js"></script>
   <script src="shipping.js"></script>
+  <script src="containers.js"></script>
   <script src="users.js"></script>
 </body>
 </html>
