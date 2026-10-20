@@ -34,6 +34,10 @@
   <div id="appScreen" class="hide">
     <header class="topbar">
       <div class="brand"><span class="logo">م</span>منصة العمل</div>
+      <button id="workflowBtn" class="btn ghost" title="خريطة سير العمل">
+        <svg viewBox="0 0 24 24" class="ic"><circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M7.5 6h9M17.5 8L13.5 16M6.5 8l4 8"/></svg>
+        <span>سير العمل</span>
+      </button>
       <div class="who"><b id="userName"></b><small id="userRole"></small></div>
       <button id="logoutBtn" class="btn">خروج</button>
     </header>
@@ -48,6 +52,72 @@
           <h2>لا توجد صفحات متاحة لك بعد</h2>
           <p class="sub">لم تُمنح لحسابك أي صلاحيات. تواصل مع مدير المنصة.</p>
         </div>
+
+        <!-- ===== صفحة: لوحة الإدارة ===== -->
+        <section id="page-dashboard" class="page hide">
+          <div class="page-head">
+            <div>
+              <h1>لوحة الإدارة</h1>
+              <p id="dbDate" class="sub"></p>
+            </div>
+            <div class="actions">
+              <button id="dbRefreshBtn" class="btn">تحديث</button>
+            </div>
+          </div>
+
+          <div id="dbKpis" class="stats"></div>
+
+          <div class="card db-card">
+            <div class="db-head"><b>مسار البضاعة الآن</b><span class="sub small">اضغط على أي مرحلة لفتح صفحتها</span></div>
+            <div id="dbPipe" class="pipe"></div>
+          </div>
+
+          <div class="db-grid">
+            <div class="card db-card">
+              <div class="db-head"><b>تحتاج إجراء</b><span id="dbAlertsCount" class="tag"></span></div>
+              <div id="dbAlerts"></div>
+            </div>
+            <div class="card db-card">
+              <div class="db-head"><b>حاويات فترة سماحها تنتهي أو انتهت</b><span class="sub small">خلال 7 أيام</span></div>
+              <div class="table-wrap"><table class="compact"><thead><tr><th>الحاوية</th><th>التسلسل</th><th>الحالة</th><th>آخر يوم مجاني</th><th>المتبقي</th></tr></thead><tbody id="dbFree"></tbody></table></div>
+            </div>
+          </div>
+
+          <div class="card db-card">
+            <div class="db-head"><b>الوصول خلال 14 يوم</b><span class="sub small">شحنات معمّدة فيها حاويات لسا في البحر</span></div>
+            <div class="table-wrap"><table class="compact"><thead><tr><th>التسلسل</th><th>الفاتورة</th><th>أمر الشراء</th><th>الشحن ← الوصول</th><th>الوصول المتوقع</th><th>الحاويات في البحر</th></tr></thead><tbody id="dbArrivals"></tbody></table></div>
+          </div>
+
+          <div class="db-grid">
+            <div class="card db-card">
+              <div class="db-head"><b>أكبر 5 موردين</b><span class="sub small">عدد الحاويات المشحونة</span></div>
+              <div id="dbSuppliers" class="hbars"></div>
+            </div>
+            <div class="card db-card">
+              <div class="db-head"><b>أكبر 5 موانئ شحن</b><span class="sub small">عدد الحاويات المشحونة</span></div>
+              <div id="dbPorts" class="hbars"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ===== صفحة: خريطة سير العمل (للجميع) ===== -->
+        <section id="page-workflow" class="page hide">
+          <div class="page-head">
+            <div>
+              <h1>خريطة سير العمل</h1>
+              <p class="sub">رحلة البضاعة من أمر الشراء إلى إقفال ملف الشحنة، ومين يسوي كل خطوة.</p>
+            </div>
+            <div class="actions">
+              <button id="wfBackBtn" class="btn">← رجوع</button>
+            </div>
+          </div>
+          <div class="wf-legend">
+            <span><i class="wf-dot mine"></i> خطوة من صلاحيتك — اضغطها للانتقال لصفحتها</span>
+            <span><i class="wf-dot"></i> خطوة لقسم آخر</span>
+            <span><i class="wf-dot gate"></i> شرط لازم قبل الانتقال</span>
+          </div>
+          <div id="wfMap" class="wf-map"></div>
+        </section>
 
         <!-- ===== صفحة: أوامر الشراء ===== -->
         <section id="page-orders" class="page hide">
@@ -778,11 +848,13 @@
   <script src="config.js"></script>
   <script src="api.js"></script>
   <script src="app.js"></script>
+  <script src="dashboard.js"></script>
   <script src="orders.js"></script>
   <script src="models.js"></script>
   <script src="shipping.js"></script>
   <script src="containers.js"></script>
   <script src="files.js"></script>
+  <script src="workflow.js"></script>
   <script src="users.js"></script>
 </body>
 </html>

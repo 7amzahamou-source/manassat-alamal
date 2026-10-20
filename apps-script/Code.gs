@@ -1,6 +1,6 @@
 /**
  * منصة العمل — الخادم
- * الخطوة 12: البيان الجمركي لكل حاوية + فترة السماح من التعميد
+ * الخطوة 13: لوحة الإدارة
  */
 
 const SESSION_HOURS = 6;
@@ -18,7 +18,8 @@ const PAGES = {
   shipped: ['none', 'view', 'edit', 'full'],
   containers: ['none', 'view', 'edit', 'full'],
   receive: ['none', 'edit'],
-  files: ['none', 'view', 'edit', 'full']
+  files: ['none', 'view', 'edit', 'full'],
+  dashboard: ['none', 'view']
 };
 
 const CERT_STATES = ['لا تحتاج', 'غير مصدرة', 'قيد الإصدار', 'صادرة'];
@@ -140,6 +141,8 @@ function doPost(e) {
       case 'saveFile':          return json_(saveFile_(data));
       case 'closeFile':         return json_(closeFile_(data));
       case 'reopenFile':        return json_(reopenFile_(data));
+      // لوحة الإدارة
+      case 'dashboard':         return json_(dashboard_(data));
       default: throw new Error('العملية غير مدعومة');
     }
   } catch (err) {
@@ -1400,6 +1403,131 @@ function deleteWhere_(key, test) {
     if (o[t.key] !== '' && test(o)) { sheet.deleteRow(i + 2); n++; }
   }
   return n;
+}
+
+/* =========================================
+   لوحة الإدارة
+========================================= */
+
+function addDaysText_(d, n) {
+  const x = new Date(d + 'T00:00:00Z');
+  x.setUTCDate(x.getUTCDate() + n);
+  return x.toISOString().slice(0, 10);
+}
+
+function daysBetweenText_(a, b) {
+  return Math.round((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 864e5);
+}
+
+/** الأيام المجانية للحاوية: آخر يوم والمتبقي (سالب = متأخر) */
+function freeTimeOf_(c, today) {
+  if (!c.dischargeDate || c.freeDays === '' || c.freeDays == null) return null;
+  const last = addDaysText_(c.dischargeDate, Number(c.freeDays) || 0);
+  return { last: last, left: daysBetweenText_(c.emptyReturnDate || today, last) };
+}
+
+function dashboard_(data) {
+  const user = requireUser_(data.token);
+  requirePage_(user, 'dashboard', 'view');
+  const today = todayText_();
+  const in14 = addDaysText_(today, 14);
+
+  const orders = readAll_('orders').filter(o => deptAllowed_(user, o.department));
+  const shipments = readAll_('shipments').filter(s => deptAllowed_(user, s.department));
+  const containers = readAll_('containers').filter(c => deptAllowed_(user, c.department));
+  const models = readAll_('models').filter(m => m.status !== 'غير فعال' && (!m.department || deptAllowed_(user, m.department)));
+  const files = buildFiles_(user);
+
+  const pending = shipments.filter(s => s.status !== SHIPPED).map(s => Object.assign(s, { state: shipState_(s) }));
+  const shipped = shipments.filter(s => s.status === SHIPPED);
+  containers.forEach(c => { c.state = containerState_(c); c.free = freeTimeOf_(c, today); });
+  const cCount = st => containers.filter(c => c.state === st).length;
+
+  // ===== الأرقام العامة =====
+  const approved = orders.filter(o => o.status === 'معتمد');
+  const orderedQty = approved.reduce((t, o) => t + (Number(o.totalQty) || 0), 0);
+  const shippedQty = shipped.filter(s => approved.some(o => o.id === s.poId))
+    .reduce((t, s) => t + (Number(s.totalQty) || 0), 0);
+
+  // ===== مسار البضاعة =====
+  const pipeline = [
+    { key: 'approval', label: 'بانتظار الاعتماد', unit: 'أمر', value: orders.length - approved.length, page: 'orders' },
+    { key: 'mfg', label: 'قيد التصنيع', unit: 'طلب', value: pending.filter(s => s.state === 'قيد التصنيع').length, page: 'shipments' },
+    { key: 'ready', label: 'جاهزة للشحن', unit: 'طلب', value: pending.filter(s => s.state === 'جاهزة للشحن').length, page: 'shipments' },
+    { key: 'sea', label: 'في البحر', unit: 'حاوية', value: cCount('في الطريق'), page: 'containers' },
+    { key: 'port', label: 'في الميناء', unit: 'حاوية', value: cCount('في الميناء'), page: 'containers' },
+    { key: 'received', label: 'مستلمة بالمستودع', unit: 'حاوية', value: cCount('استلمت'), page: 'containers' },
+    { key: 'returned', label: 'أُعيد الفارغ', unit: 'حاوية', value: cCount('أُعيد الفارغ'), page: 'containers' }
+  ];
+
+  // ===== التنبيهات =====
+  const alerts = [];
+  const add = (level, count, text, page) => { if (count) alerts.push({ level: level, count: count, text: text, page: page }); };
+  const overdue = containers.filter(c => c.free && !c.emptyReturnDate && c.free.left < 0);
+  const ending = containers.filter(c => c.free && !c.emptyReturnDate && c.free.left >= 0 && c.free.left <= 3);
+  add('bad', overdue.length, 'حاوية تجاوزت فترة السماح (أرضيات)', 'containers');
+  add('wait', ending.length, 'حاوية تنتهي فترة سماحها خلال 3 أيام', 'containers');
+  add('wait', containers.filter(c => c.state === 'في الميناء' && !c.declarationNo).length, 'حاوية في الميناء بدون بيان جمركي', 'containers');
+  add('wait', containers.filter(c => c.state === 'في الميناء').filter(c => daysBetweenText_(c.dischargeDate, today) > 7).length,
+    'حاوية في الميناء من أكثر من 7 أيام ولم تُستلم', 'containers');
+  add('wait', containers.filter(c => c.state === 'في الطريق' && !c.containerNo).length, 'حاوية مشحونة بدون رقم', 'containers');
+  add('wait', orders.length - approved.length, 'أمر شراء بانتظار الاعتماد', 'orders');
+  add('wait', pending.filter(s => s.state === 'جاهزة للشحن' && daysBetweenText_(s.readyDate, today) > 7).length,
+    'طلب شحن جاهز من أكثر من 7 أيام ولم يُعمّد', 'shipments');
+  add('wait', pending.filter(s => s.state === 'جاهزة للشحن' && ['مجتاز', 'معفى'].indexOf(s.inspection) < 0).length,
+    'طلب شحن جاهز ولم يجتز الفحص', 'shipments');
+  add('wait', files.filter(f => f.state === 'وصلت - بانتظار البيان').length, 'ملف شحنة وصل وبانتظار البيان', 'files');
+  add('wait', files.filter(f => f.state === 'مفسوحة').length, 'ملف شحنة مفسوح ولم يُقفل', 'files');
+  const certExpired = models.filter(m => m.cert === 'صادرة' && m.certExp && m.certExp < today).length;
+  const certSoon = models.filter(m => m.cert === 'صادرة' && m.certExp && m.certExp >= today && daysBetweenText_(today, m.certExp) <= 30).length;
+  add('bad', certExpired, 'موديل شهادة SASO منتهية', 'models');
+  add('wait', certSoon, 'موديل شهادة SASO تنتهي خلال 30 يوم', 'models');
+  add('wait', models.filter(m => m.cert === 'غير مصدرة' || m.cert === 'قيد الإصدار').length, 'موديل شهادة SASO غير مصدرة أو قيد الإصدار', 'models');
+  alerts.sort((a, b) => (a.level === 'bad' ? 0 : 1) - (b.level === 'bad' ? 0 : 1));
+
+  // ===== الحاويات حسب الأيام المجانية =====
+  const freeList = containers.filter(c => c.free && !c.emptyReturnDate && c.free.left <= 7)
+    .sort((a, b) => a.free.left - b.free.left).slice(0, 10)
+    .map(c => ({ containerNo: c.containerNo, serial: c.serial, declarationNo: c.declarationNo, state: c.state,
+                 warehouse: c.warehouse, last: c.free.last, left: c.free.left }));
+
+  // ===== الوصول خلال 14 يوم =====
+  const arrivals = shipped.filter(s => s.eta && s.eta <= in14)
+    .map(s => {
+      const mine = containers.filter(c => c.shipmentId === s.id);
+      return { serial: s.serial, invoiceNo: s.invoiceNo, poNo: s.poNo, eta: s.eta, port: s.port, arrivalPort: s.arrivalPort,
+               containers: mine.length || Number(s.totalContainers) || 0, atSea: mine.filter(c => c.state === 'في الطريق').length };
+    })
+    .filter(a => a.atSea > 0)
+    .sort((a, b) => a.eta.localeCompare(b.eta)).slice(0, 10);
+
+  // ===== أكبر الموردين والموانئ (عدد الحاويات المشحونة) =====
+  const top = keyOf => {
+    const m = {};
+    shipped.forEach(s => {
+      const k = keyOf(s) || '—';
+      m[k] = (m[k] || 0) + (containers.filter(c => c.shipmentId === s.id).length || Number(s.totalContainers) || 0);
+    });
+    return Object.keys(m).map(k => ({ name: k, value: m[k] })).sort((a, b) => b.value - a.value).slice(0, 5);
+  };
+
+  return {
+    success: true,
+    today: today,
+    kpis: {
+      orders: orders.length, approvedOrders: approved.length,
+      orderedQty: orderedQty, shippedQty: shippedQty,
+      containers: containers.length, inTransit: cCount('في الطريق') + cCount('في الميناء'),
+      openFiles: files.filter(f => f.state !== 'مقفل').length, closedFiles: files.filter(f => f.state === 'مقفل').length,
+      overdue: overdue.length
+    },
+    pipeline: pipeline,
+    alerts: alerts,
+    freeList: freeList,
+    arrivals: arrivals,
+    topSuppliers: top(s => s.supplier),
+    topPorts: top(s => s.port)
+  };
 }
 
 function todayText_() {

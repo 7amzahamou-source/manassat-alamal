@@ -15,7 +15,7 @@
   });
 
   /** الصفحات اللي تنعطى صلاحياتها للموظفين (كل صفحة غير خاصة بالمدير) */
-  const grantable = () => PAGES.filter(p => !p.adminOnly);
+  const grantable = () => PAGES.filter(p => !p.adminOnly && !p.everyone);
 
   function init() {
     $('u_dept').innerHTML = options(DEPTS, 'كل الأقسام');

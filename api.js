@@ -74,5 +74,8 @@ const API = {
   listFiles()           { return this.call('listFiles',  { token: this.token() }); },
   saveFile(f)           { return this.call('saveFile',   { token: this.token(), file: f }); },
   closeFile(f)          { return this.call('closeFile',  { token: this.token(), file: f }); },
-  reopenFile(serial)    { return this.call('reopenFile', { token: this.token(), serial }); }
+  reopenFile(serial)    { return this.call('reopenFile', { token: this.token(), serial }); },
+
+  // لوحة الإدارة
+  dashboard()           { return this.call('dashboard', { token: this.token() }); }
 };

@@ -1,7 +1,7 @@
 /**
  * منصة العمل — الأساس
  * الدخول والخروج، القائمة حسب الصلاحيات، والأدوات المشتركة.
- * كل صفحة في ملف خاص (orders.js، models.js، shipping.js، containers.js، files.js، users.js) وتسجّل نفسها بـ registerPage.
+ * كل صفحة في ملف خاص (orders.js، models.js، dashboard.js، orders.js… workflow.js، users.js) وتسجّل نفسها بـ registerPage.
  */
 const $ = id => document.getElementById(id);
 
@@ -21,6 +21,8 @@ const ICONS = {
   containers: '<svg viewBox="0 0 24 24"><rect x="2" y="7" width="20" height="13" rx="1.5"/><path d="M6 7v13M10 7v13M14 7v13M18 7v13M2 7l3-4h14l3 4"/></svg>',
   receive: '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5M12 15V3"/></svg>',
   files: '<svg viewBox="0 0 24 24"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>',
+  dashboard: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>',
+  workflow: '<svg viewBox="0 0 24 24"><circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M7.5 6h9M17.5 8L13.5 16M6.5 8l4 8"/></svg>',
   users: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 21c0-3.5 3-5.5 7-5.5s7 2 7 5.5"/><path d="M16 4a3.5 3.5 0 0 1 0 7M22 21c0-3-2-5-5-5.4"/></svg>'
 };
 
@@ -92,12 +94,14 @@ function level(pageKey) {
   if (!currentUser) return 'none';
   const page = PAGES.find(p => p.key === pageKey);
   if (page && page.adminOnly) return isAdmin() ? 'full' : 'none';
+  if (page && page.everyone) return 'view';   // صفحات للجميع (مثل خريطة سير العمل)
   if (isAdmin()) return 'full';
   return (currentUser.perms || {})[pageKey] || 'none';
 }
 
 const can = (pageKey, need) => LEVEL_RANK[level(pageKey)] >= LEVEL_RANK[need];
-const myPages = () => PAGES.filter(p => can(p.key, 'view'));
+const myPages = () => PAGES.filter(p => !p.everyone && can(p.key, 'view'));
+let lastPage = '';
 
 /** تسجيل صفحة: { key, title, icon, adminOnly, levels, init(), show() } */
 function registerPage(page) {
@@ -136,16 +140,19 @@ function buildNav() {
   showScreen('appScreen');
 
   $('noAccess').classList.toggle('hide', list.length > 0);
-  if (!list.length) return;
+  if (!list.length) return sessionStorage.getItem('page') === 'workflow' && goTo('workflow');
 
   const saved = sessionStorage.getItem('page');
-  goTo(list.some(p => p.key === saved) ? saved : list[0].key);
+  goTo(list.some(p => p.key === saved) || saved === 'workflow' ? saved : list[0].key);
 }
 
 function goTo(key) {
   const page = PAGES.find(p => p.key === key);
   if (!page || !can(key, 'view')) return;
+  const prev = sessionStorage.getItem('page');
+  if (prev && prev !== key && prev !== 'workflow') lastPage = prev;
   sessionStorage.setItem('page', key);
+  $('noAccess').classList.add('hide');
   PAGES.forEach(p => $('page-' + p.key).classList.toggle('hide', p.key !== key));
   document.querySelectorAll('#sideNav [data-page]').forEach(b => b.classList.toggle('active', b.dataset.page === key));
   page.show();
@@ -197,6 +204,7 @@ window.addEventListener('session-expired', () => {
 document.addEventListener('DOMContentLoaded', () => {
   $('loginForm').addEventListener('submit', handleLogin);
   $('logoutBtn').addEventListener('click', handleLogout);
+  $('workflowBtn').addEventListener('click', () => goTo('workflow'));
   $('sideNav').addEventListener('click', e => {
     const btn = e.target.closest('[data-page]');
     if (btn) goTo(btn.dataset.page);
