@@ -669,3 +669,12 @@ table.rt-in td:first-child { font-weight: 600; }
 .wf-step.lc { border-style: dashed; }
 .wf-step.lc:not(.mine) { border-color: rgba(229,50,42,.45); }
 .wf-dot.lc { border-style: dashed; border-color: var(--red); }
+
+/* موانئ الشحن في أمر الشراء */
+.port-box { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; border: 1px solid var(--line); border-radius: 12px; padding: 8px; background: var(--panel); }
+.port-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.port-chip { display: inline-flex; align-items: center; gap: 6px; background: var(--acc-soft); color: var(--acc); border-radius: 20px; padding: 3px 6px 3px 12px; font-size: 13px; font-weight: 600; direction: ltr; }
+.port-chip button { border: 0; background: transparent; color: inherit; cursor: pointer; font-size: 14px; line-height: 1; padding: 2px 4px; border-radius: 50%; }
+.port-chip button:hover { background: var(--panel); }
+.port-box .rt-add input { width: 170px; }
+.ports-cell { display: block; color: var(--mute); font-size: 12px; direction: ltr; text-align: right; }

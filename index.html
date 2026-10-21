@@ -602,8 +602,20 @@
             <select id="f_currency"><option>USD</option><option>CNY</option><option>SAR</option><option>EUR</option></select>
           </div>
           <div>
-            <label for="f_incoterm">شرط التسليم</label>
-            <select id="f_incoterm"><option>FOB</option><option>CFR</option><option>CIF</option><option>EXW</option><option>DDP</option></select>
+            <label for="f_incoterm">شرط التسليم (Incoterm) *</label>
+            <select id="f_incoterm" required>
+              <option value="">اختر</option>
+              <option value="EXW">EXW — من المصنع</option>
+              <option value="FCA">FCA — تسليم للناقل</option>
+              <option value="FOB">FOB — على ظهر السفينة</option>
+              <option value="CFR">CFR (C&amp;F) — التكلفة والشحن</option>
+              <option value="CIF">CIF — التكلفة والتأمين والشحن</option>
+              <option value="CPT">CPT — أجرة النقل مدفوعة</option>
+              <option value="CIP">CIP — النقل والتأمين مدفوعان</option>
+              <option value="DAP">DAP — التسليم في المكان</option>
+              <option value="DPU">DPU — التسليم بعد التفريغ</option>
+              <option value="DDP">DDP — التسليم مع دفع الرسوم</option>
+            </select>
           </div>
           <div>
             <label for="f_payMethod">طريقة الدفع</label>
@@ -611,6 +623,13 @@
           </div>
           <div><label for="f_depositPct">الدفعة المقدمة %</label><input id="f_depositPct" type="number" min="0" max="100" step="any" placeholder="30"></div>
           <div class="wide"><label for="f_notes">ملاحظات</label><input id="f_notes"></div>
+          <div class="wide" style="grid-column:1/-1">
+            <label for="f_portIn">موانئ الشحن * <span class="sub small" style="font-weight:400">— أضف ميناء أو أكثر</span></label>
+            <div class="port-box">
+              <div id="f_ports" class="port-chips"></div>
+              <div class="rt-add" id="f_portAdd"><input id="f_portIn" placeholder="مثال: NINGBO" dir="ltr" list="portsList" autocomplete="off"><button type="button" id="addPortBtn" class="btn small">+ إضافة</button></div>
+            </div>
+          </div>
         </div>
 
         <div class="items-head">
@@ -797,7 +816,8 @@
             <select id="ns_po" required></select>
           </div>
           <div><label for="ns_invoice">رقم الفاتورة *</label><input id="ns_invoice" required dir="ltr"></div>
-          <div><label for="ns_port">ميناء التحميل *</label><input id="ns_port" list="portsList" required dir="ltr" placeholder="NINGBO" autocomplete="off"></div>
+          <div><label for="ns_port">ميناء التحميل *</label><input id="ns_port" list="nsPortsList" required dir="ltr" placeholder="NINGBO" autocomplete="off"></div>
+          <datalist id="nsPortsList"></datalist>
           <div><label for="ns_ready">تاريخ جاهزية البضاعة *</label><input id="ns_ready" type="date" required></div>
           <div id="nsLcWrap" class="wide hide">
             <label for="ns_lc">الاعتماد البنكي (L/C)</label>

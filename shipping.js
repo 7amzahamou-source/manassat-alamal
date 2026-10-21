@@ -179,6 +179,8 @@
     $('ns_ready').value = today();
     $('nsError').textContent = '';
     $('nsPoInfo').textContent = '';
+    $('nsLcWrap').classList.add('hide');
+    $('nsPortsList').innerHTML = $('portsList').innerHTML;
     $('ns_po').innerHTML = '<option value="">جارٍ تحميل أوامر الشراء…</option>';
     $('nsLines').innerHTML = '<tr><td colspan="7" class="empty">اختر أمر الشراء.</td></tr>';
     nsTotals();
@@ -200,11 +202,17 @@
     if (!po) {
       lines = [];
       $('nsPoInfo').textContent = '';
+      $('nsLcWrap').classList.add('hide');
       $('nsLines').innerHTML = '<tr><td colspan="7" class="empty">اختر أمر الشراء.</td></tr>';
       nsTotals();
       return;
     }
-    $('nsPoInfo').textContent = `${po.supplier} — ${po.department} — تاريخ الأمر ${po.date} — الدفع ${po.payMethod || '—'}`;
+    $('nsPoInfo').textContent = `${po.supplier} — ${po.department} — تاريخ الأمر ${po.date} — ${po.incoterm || ''} — الدفع ${po.payMethod || '—'}` +
+      ((po.ports || []).length ? ` — موانئ الشحن: ${po.ports.join('، ')}` : '');
+    // موانئ أمر الشراء أولًا في الاقتراحات، وإذا ميناء واحد يتعبّى تلقائيًا
+    const all = [...$('portsList').options].map(o => o.value);
+    $('nsPortsList').innerHTML = [...new Set((po.ports || []).concat(all))].map(p => `<option value="${esc(p)}">`).join('');
+    if ((po.ports || []).length && !(po.ports || []).includes($('ns_port').value.trim().toUpperCase())) $('ns_port').value = po.ports[0];
     const lcs = po.lcs || [];
     $('nsLcWrap').classList.toggle('hide', !lcs.length && po.payMethod !== 'L/C');
     $('ns_lc').innerHTML = (lcs.length ? '<option value="">بدون — أربطه لاحقًا</option>' : '<option value="">لا يوجد اعتماد مفتوح لهذا الأمر — افتحه من «الاعتمادات البنكية»</option>') +

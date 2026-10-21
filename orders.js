@@ -8,6 +8,8 @@
   let items = [];
   let readOnly = false;
   let models = [];      // قاعدة الموديلات للتعبئة التلقائية
+  let ports = [];       // موانئ الشحن للأمر المفتوح
+  const cleanPort = p => String(p || '').trim().toUpperCase().replace(/\s+/g, ' ');
 
   const statusTag = s => `<span class="tag ${s === 'معتمد' ? 'ok' : 'wait'}">${esc(s)}</span>`;
   const containersOf = o => (o.items || []).reduce((s, i) => s + (Number(i.containers) || 0), 0);
@@ -52,6 +54,17 @@
     $('f_currency').addEventListener('change', calcTotals);
 
     $('addItemBtn').addEventListener('click', () => { items.push({}); drawItems(); });
+
+    // موانئ الشحن (أكثر من ميناء)
+    $('addPortBtn').addEventListener('click', addPort);
+    $('f_portIn').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addPort(); } });
+    $('f_portIn').addEventListener('change', () => { if ([...$('portsList').options].some(o => o.value === cleanPort($('f_portIn').value))) addPort(); });
+    $('f_ports').addEventListener('click', e => {
+      const b = e.target.closest('[data-port]');
+      if (!b) return;
+      ports = ports.filter(p => p !== b.dataset.port);
+      drawPorts();
+    });
     $('itemsBody').addEventListener('input', e => {
       const { n, f } = e.target.dataset;
       if (n === undefined) return;
@@ -139,7 +152,7 @@
     const dept = $('filterDept').value;
     const status = $('filterStatus').value;
     return orders.filter(o =>
-      (!q || [o.poNo, o.supplier, ...(o.items || []).map(i => i.model)].join(' ').toLowerCase().includes(q)) &&
+      (!q || [o.poNo, o.supplier, o.incoterm, ...(o.ports || []), ...(o.items || []).map(i => i.model)].join(' ').toLowerCase().includes(q)) &&
       (!dept || o.department === dept) &&
       (!status || o.status === status));
   }
@@ -166,7 +179,7 @@
         <td><b>${esc(o.poNo)}</b></td>
         <td>${esc(o.date)}</td>
         <td>${esc(o.department)}</td>
-        <td>${esc(o.supplier)}</td>
+        <td>${esc(o.supplier)}<span class="ports-cell">${esc([o.incoterm, (o.ports || []).join(' · ')].filter(Boolean).join(' — '))}</span></td>
         <td class="num">${(o.items || []).length}</td>
         <td class="num">${num(o.totalQty)}</td>
         <td class="num">${num(containersOf(o)) || '—'}</td>
@@ -181,16 +194,21 @@
   function openOrder(order) {
     editing = order || null;
     const dept = myDept();
-    const o = order || { date: today(), currency: 'USD', incoterm: 'FOB', payMethod: 'T/T', department: dept, items: [] };
+    const o = order || { date: today(), currency: 'USD', incoterm: 'FOB', payMethod: 'T/T', department: dept, items: [], ports: [] };
     readOnly = !can('orders', 'edit') || (o.status === 'معتمد' && !can('orders', 'full'));
 
     $('dlgTitle').textContent = order ? 'أمر الشراء ' + order.poNo : 'أمر شراء جديد';
     $('dlgStatus').innerHTML = order ? statusTag(order.status) : '';
     FIELDS.forEach(f => { $('f_' + f).value = o[f] ?? ''; });
     if (!o.depositPct) $('f_depositPct').value = '';
+    $('f_incoterm').value = String(o.incoterm || '').toUpperCase().replace('C&F', 'CFR');
+    ports = (o.ports || []).slice();
+    $('f_portIn').value = '';
 
     document.querySelectorAll('#orderForm .grid input, #orderForm .grid select').forEach(el => { el.disabled = readOnly; });
     if (dept) $('f_department').disabled = true;   // الموظف مرتبط بقسمه
+    $('f_portAdd').classList.toggle('hide', readOnly);
+    drawPorts();
 
     $('saveBtn').classList.toggle('hide', readOnly);
     $('addItemBtn').classList.toggle('hide', readOnly);
@@ -265,7 +283,25 @@
     const order = { id: editing ? editing.id : '' };
     FIELDS.forEach(f => { order[f] = $('f_' + f).value; });
     order.items = items.filter(i => String(i.model || '').trim() || Number(i.qty));
+    if ($('f_portIn').value.trim()) addPort();   // ميناء مكتوب ولم يُضغط «إضافة»
+    order.ports = ports.slice();
     return order;
+  }
+
+  function addPort() {
+    const p = cleanPort($('f_portIn').value);
+    $('f_portIn').value = '';
+    if (!p || ports.includes(p)) return;
+    if (ports.length >= 10) { $('formError').textContent = 'الحد الأعلى 10 موانئ'; return; }
+    ports.push(p);
+    drawPorts();
+    $('formError').textContent = '';
+  }
+
+  function drawPorts() {
+    $('f_ports').innerHTML = ports.length ? ports.map(p => `<span class="port-chip">${esc(p)}${readOnly ? '' :
+      `<button type="button" data-port="${esc(p)}" aria-label="حذف ${esc(p)}">✕</button>`}</span>`).join('')
+      : '<span class="sub small">لا توجد موانئ بعد</span>';
   }
 
   function putLocal(order) {

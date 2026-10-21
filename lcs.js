@@ -191,7 +191,8 @@
     if (!pos[i].amount) pos[i].amount = Math.max(0, r2(po.totalValue - otherCover(po)));
     if (!$('lc_supplier').value) $('lc_supplier').value = po.supplier;
     if (pos.filter(p => p.poId).length === 1) $('lc_currency').value = po.currency;
-    if (!$('lc_incoterm').value && po.incoterm) $('lc_incoterm').value = String(po.incoterm).replace('C&F', 'CFR');
+    // شرط التسليم ينسحب من أمر الشراء تلقائيًا (يتعدّل يدويًا لو لزم)
+    if (po.incoterm) $('lc_incoterm').value = po.incoterm;
   }
 
   function drawPos() {
@@ -201,7 +202,7 @@
       const choices = poOptions.filter(o => o.id === p.poId || !used.includes(o.id));
       const select = editable
         ? `<select data-arr="pos" data-i="${i}" data-f="poId"><option value="">اختر أمر الشراء</option>${choices.map(o =>
-            `<option value="${esc(o.id)}" ${o.id === p.poId ? 'selected' : ''}>${esc(o.poNo)}${o.payMethod === 'L/C' ? ' — L/C' : ''} (${esc(o.currency)})</option>`).join('')}</select>`
+            `<option value="${esc(o.id)}" ${o.id === p.poId ? 'selected' : ''}>${esc(o.poNo)}${o.payMethod === 'L/C' ? ' — L/C' : ''} (${esc(o.currency)}${o.incoterm ? ' · ' + esc(o.incoterm) : ''})</option>`).join('')}</select>`
         : `<b>${esc(p.poNo || (po || {}).poNo || '')}</b>`;
       return `<tr>
         <td>${select}</td>
