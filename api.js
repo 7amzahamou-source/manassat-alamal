@@ -83,5 +83,12 @@ const API = {
   report()              { return this.call('report',      { token: this.token() }); },
   listRates()           { return this.call('listRates',   { token: this.token() }); },
   saveRates(date, prices) { return this.call('saveRates', { token: this.token(), date, prices }); },
-  deleteRates(date)     { return this.call('deleteRates', { token: this.token(), date }); }
+  deleteRates(date)     { return this.call('deleteRates', { token: this.token(), date }); },
+
+  // الاعتمادات البنكية
+  listLcs()             { return this.call('listLcs',  { token: this.token() }); },
+  saveLc(lc)            { return this.call('saveLc',   { token: this.token(), lc }); },
+  closeLc(id)           { return this.call('closeLc',  { token: this.token(), id }); },
+  reopenLc(id)          { return this.call('reopenLc', { token: this.token(), id }); },
+  deleteLc(id)          { return this.call('deleteLc', { token: this.token(), id }); }
 };

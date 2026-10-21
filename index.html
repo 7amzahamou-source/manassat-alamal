@@ -235,6 +235,7 @@
             <div class="wf-art-legend">
               <span><i class="lg-ring"></i> من صلاحيتك</span>
               <span><i class="lg-gate">!</i> شرط لازم قبل الخطوة الجاية</span>
+              <span><i class="lg-lc">L/C</i> خطوة عند الدفع باعتماد بنكي فقط</span>
               <span class="sub small" style="margin:0">اضغط على أي خطوة لعرض تفاصيلها</span>
             </div>
             <div id="wfArtInfo" class="wf-art-info" aria-live="polite"></div>
@@ -246,6 +247,7 @@
               <span><i class="wf-dot mine"></i> خطوة من صلاحيتك، اضغطها للانتقال لصفحتها</span>
               <span><i class="wf-dot"></i> خطوة لقسم آخر</span>
               <span><i class="wf-dot gate"></i> شرط لازم قبل الانتقال</span>
+              <span><i class="wf-dot lc"></i> عند الدفع باعتماد بنكي (L/C) فقط</span>
             </div>
             <div id="wfMap" class="wf-map"></div>
           </div>
@@ -509,6 +511,46 @@
           </div>
         </section>
 
+        <!-- ===== صفحة: الاعتمادات البنكية ===== -->
+        <section id="page-lcs" class="page hide">
+          <div class="page-head">
+            <div>
+              <h1>الاعتمادات البنكية</h1>
+              <p class="sub">فتح الاعتماد وربطه بأوامر الشراء، التعديلات، تقديم المستندات للبنك، السداد والمصاريف البنكية.</p>
+            </div>
+            <div class="actions">
+              <button id="lcRefreshBtn" class="btn">تحديث</button>
+              <button id="newLcBtn" class="btn primary">+ اعتماد جديد</button>
+            </div>
+          </div>
+          <div id="lcStats" class="stats five"></div>
+          <div class="card">
+            <div class="toolbar">
+              <input id="lcSearch" placeholder="ابحث برقم الاعتماد أو البنك أو المورد أو أمر الشراء">
+              <select id="lcFilterState">
+                <option value="">كل الحالات</option>
+                <option value="active">غير مقفلة</option>
+                <option>مفتوح</option>
+                <option>مستخدم بالكامل</option>
+                <option>منتهي</option>
+                <option>مقفل</option>
+              </select>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>رقم الاعتماد</th><th>البنك</th><th>المورد</th><th>أوامر الشراء</th><th>الدفع</th>
+                    <th>المبلغ</th><th>المستخدم</th><th>المتاح</th><th>آخر شحن</th><th>الصلاحية</th>
+                    <th>الاستحقاق القادم</th><th>الحالة</th>
+                  </tr>
+                </thead>
+                <tbody id="lcBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
         <!-- ===== صفحة: الموظفون والصلاحيات (للمدير فقط) ===== -->
         <section id="page-users" class="page hide">
           <div class="page-head">
@@ -592,6 +634,7 @@
           <div><span>إجمالي الحاويات</span><b id="totCnt">0</b></div>
           <div class="grand"><span>قيمة الأمر</span><b id="totVal">0</b></div>
         </div>
+        <div id="odLcs" class="hide"></div>
         <p id="dlgMeta" class="meta"></p>
       </div>
 
@@ -756,6 +799,10 @@
           <div><label for="ns_invoice">رقم الفاتورة *</label><input id="ns_invoice" required dir="ltr"></div>
           <div><label for="ns_port">ميناء التحميل *</label><input id="ns_port" list="portsList" required dir="ltr" placeholder="NINGBO" autocomplete="off"></div>
           <div><label for="ns_ready">تاريخ جاهزية البضاعة *</label><input id="ns_ready" type="date" required></div>
+          <div id="nsLcWrap" class="wide hide">
+            <label for="ns_lc">الاعتماد البنكي (L/C)</label>
+            <select id="ns_lc"></select>
+          </div>
           <div class="wide"><label for="ns_notes">ملاحظات</label><input id="ns_notes"></div>
         </div>
         <p id="nsPoInfo" class="meta"></p>
@@ -799,7 +846,7 @@
         <h3 class="section-title">بيانات الشحن</h3>
         <div class="grid">
           <div><label for="sd_invoiceNo">رقم الفاتورة *</label><input id="sd_invoiceNo" dir="ltr"></div>
-          <div><label for="sd_approvalNo">رقم الاعتماد</label><input id="sd_approvalNo" dir="ltr"></div>
+          <div><label for="sd_approvalNo">رقم اعتماد الشحن</label><input id="sd_approvalNo" dir="ltr"></div>
           <div id="sdReadyWrap"><label for="sd_readyDate">تاريخ الجاهزية</label><input id="sd_readyDate" type="date"></div>
           <div><label for="sd_forwarder">الوسيط / شركة الشحن</label><input id="sd_forwarder"></div>
           <div><label for="sd_shipDate">تاريخ الشحن</label><input id="sd_shipDate" type="date"></div>
@@ -817,9 +864,14 @@
           </div>
           <div><label for="sd_inspectionNote">تاريخ الفحص / الجهة</label><input id="sd_inspectionNote" placeholder="مثال: 2026-10-01 — SGS"></div>
           <div><label for="sd_freeDays">فترة السماح (أيام مجانية)</label><input id="sd_freeDays" type="number" min="0" step="1" placeholder="مثال: 14"></div>
+          <div id="sdLcWrap" class="wide">
+            <label for="sd_lcId">الاعتماد البنكي (L/C)</label>
+            <select id="sd_lcId"></select>
+            <small id="sdLcInfo" class="sub"></small>
+          </div>
           <div class="wide"><label for="sd_notes">ملاحظات</label><input id="sd_notes"></div>
         </div>
-        <p id="sdHint" class="note hide">لتعميد الشحن لازم: تاريخ الشحن، ميناء الوصول، رقم الفاتورة، رقم الاعتماد، فترة السماح، وفحص «مجتاز» أو «معفى». فترة السماح تنتقل لكل حاويات الشحنة: آخر يوم للإرجاع = تاريخ التفريغ + فترة السماح.</p>
+        <p id="sdHint" class="note hide">لتعميد الشحن لازم: تاريخ الشحن، ميناء الوصول، رقم الفاتورة، رقم اعتماد الشحن، فترة السماح، وفحص «مجتاز» أو «معفى». وإذا أمر الشراء L/C: اعتماد بنكي ساري، الشحن قبل آخر موعد فيه، ورصيده يكفي قيمة الشحنة. فترة السماح تنتقل لكل حاويات الشحنة: آخر يوم للإرجاع = تاريخ التفريغ + فترة السماح.</p>
         <p id="sdMeta" class="meta"></p>
       </div>
       <div class="dlg-foot">
@@ -876,6 +928,108 @@
   </dialog>
 
   <!-- ===== نافذة ملف الشحنة ===== -->
+  <dialog id="lcDialog">
+    <form id="lcForm">
+      <div class="dlg-head">
+        <h2 id="lcTitle"></h2>
+        <span id="lcState"></span>
+        <button type="button" class="btn" data-close>إغلاق</button>
+      </div>
+      <div class="dlg-body">
+        <h3 class="fh" style="margin-top:0;border:0;padding-top:0">بيانات الاعتماد</h3>
+        <div class="grid">
+          <div><label for="lc_lcNo">رقم الاعتماد *</label><input id="lc_lcNo" dir="ltr" required></div>
+          <div><label for="lc_bank">البنك *</label><input id="lc_bank" list="banksList" autocomplete="off" required></div>
+          <div><label for="lc_supplier">المستفيد (المورد)</label><input id="lc_supplier"></div>
+          <div>
+            <label for="lc_currency">العملة</label>
+            <select id="lc_currency"><option>USD</option><option>CNY</option><option>SAR</option><option>EUR</option></select>
+          </div>
+          <div><label for="lc_amount">مبلغ الاعتماد *</label><input id="lc_amount" type="number" min="0" step="0.01" required></div>
+          <div><label for="lc_tolerance">نسبة التجاوز المسموحة ±%</label><input id="lc_tolerance" type="number" min="0" max="20" step="any" placeholder="0"></div>
+          <div>
+            <label for="lc_payType">نوع الدفع</label>
+            <select id="lc_payType"><option>اطلاع</option><option>آجل</option></select>
+          </div>
+          <div id="lcUsanceWrap"><label for="lc_usanceDays">أيام الآجل (من تاريخ الشحن)</label><input id="lc_usanceDays" type="number" min="0" step="1" placeholder="90"></div>
+          <div><label for="lc_issueDate">تاريخ الفتح *</label><input id="lc_issueDate" type="date" required></div>
+          <div><label for="lc_latestShipDate">آخر موعد للشحن *</label><input id="lc_latestShipDate" type="date" required></div>
+          <div><label for="lc_expiryDate">تاريخ انتهاء الصلاحية *</label><input id="lc_expiryDate" type="date" required></div>
+          <div><label for="lc_presentationDays">مدة تقديم المستندات (يوم)</label><input id="lc_presentationDays" type="number" min="0" step="1" placeholder="21"></div>
+          <div>
+            <label for="lc_partial">الشحن الجزئي</label>
+            <select id="lc_partial"><option>مسموح</option><option>غير مسموح</option></select>
+          </div>
+          <div class="wide"><label for="lc_notes">ملاحظات</label><input id="lc_notes"></div>
+        </div>
+
+        <div class="items-head">
+          <h3>أوامر الشراء المغطاة</h3>
+          <button type="button" id="lcAddPoBtn" class="btn small">+ إضافة أمر شراء</button>
+        </div>
+        <div class="table-wrap">
+          <table class="items">
+            <thead><tr><th>أمر الشراء</th><th>المورد</th><th>قيمة الأمر</th><th>مغطى باعتمادات أخرى</th><th>المبلغ المخصص من هذا الاعتماد</th><th></th></tr></thead>
+            <tbody id="lcPos"></tbody>
+          </table>
+        </div>
+
+        <div id="lcSummary" class="totals"></div>
+
+        <div class="items-head">
+          <h3>التعديلات (Amendments)</h3>
+          <button type="button" id="lcAddAmdBtn" class="btn small">+ إضافة تعديل</button>
+        </div>
+        <div class="table-wrap">
+          <table class="items">
+            <thead><tr><th>#</th><th>التاريخ</th><th>الوصف</th><th>زيادة/نقص المبلغ</th><th>صلاحية جديدة</th><th>آخر شحن جديد</th><th></th></tr></thead>
+            <tbody id="lcAmds"></tbody>
+          </table>
+        </div>
+
+        <h3 class="fh">الشحنات المربوطة وتقديم المستندات للبنك</h3>
+        <p class="sub small">تُربط الشحنة بالاعتماد من نافذة «بيانات الشحن». بعد تعميد الشحن سجّل هنا تقديم المستندات، الملاحظات (Discrepancies)، القبول، والسداد.</p>
+        <div class="table-wrap">
+          <table class="items">
+            <thead><tr><th>الشحنة</th><th>الفاتورة</th><th>أمر الشراء</th><th>تاريخ الشحن</th><th>القيمة</th><th>الحالة</th><th></th></tr></thead>
+            <tbody id="lcShips"></tbody>
+          </table>
+        </div>
+        <div class="table-wrap" style="margin-top:12px">
+          <table class="items lc-pres">
+            <thead><tr><th>الشحنة</th><th>تاريخ التقديم</th><th>المبلغ</th><th>الملاحظات</th><th>الحالة</th><th>تاريخ القبول</th><th>الاستحقاق</th><th>تاريخ السداد</th><th>المسدد</th><th></th></tr></thead>
+            <tbody id="lcPres"></tbody>
+          </table>
+        </div>
+
+        <div class="items-head">
+          <h3>المصاريف البنكية</h3>
+          <button type="button" id="lcAddChgBtn" class="btn small">+ إضافة مصروف</button>
+        </div>
+        <div class="table-wrap">
+          <table class="items">
+            <thead><tr><th>التاريخ</th><th>الوصف</th><th>المبلغ</th><th>العملة</th><th></th></tr></thead>
+            <tbody id="lcChgs"></tbody>
+          </table>
+        </div>
+        <p id="lcHint" class="note hide">لإقفال الاعتماد لازم كل المستندات المقدمة تكون مسددة أو مرفوضة.</p>
+        <p id="lcMeta" class="meta"></p>
+      </div>
+      <div class="dlg-foot">
+        <div id="lcError" class="error"></div>
+        <button type="button" id="lcDeleteBtn" class="btn danger">حذف</button>
+        <button type="button" id="lcReopenBtn" class="btn">إعادة فتح</button>
+        <button type="submit" id="lcSaveBtn" class="btn primary">حفظ</button>
+        <button type="button" id="lcCloseBtn" class="btn">إقفال الاعتماد</button>
+      </div>
+    </form>
+    <datalist id="banksList">
+      <option>البنك الأهلي السعودي</option><option>مصرف الراجحي</option><option>بنك الرياض</option>
+      <option>البنك السعودي الفرنسي</option><option>البنك السعودي الأول (ساب)</option><option>البنك العربي الوطني</option>
+      <option>بنك البلاد</option><option>بنك الجزيرة</option><option>مصرف الإنماء</option><option>بنك الاستثمار</option>
+    </datalist>
+  </dialog>
+
   <dialog id="fileDialog">
     <form id="fileForm">
       <div class="dlg-head">
@@ -988,6 +1142,7 @@
   <script src="containers.js"></script>
   <script src="files.js"></script>
   <script src="rates.js"></script>
+  <script src="lcs.js"></script>
   <script src="workflow.js"></script>
   <script src="users.js"></script>
 </body>

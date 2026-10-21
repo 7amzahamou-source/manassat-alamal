@@ -15,7 +15,10 @@
           out: 'الأمر يصير «بانتظار الاعتماد»' },
         { page: 'orders', need: 'full', icon: 'approve', title: 'اعتماد الأمر', who: 'أوامر الشراء (صلاحية كاملة)',
           what: 'مراجعة الأمر واعتماده.', gate: 'ما ينطلب شحن من أمر غير معتمد',
-          out: 'الأمر «معتمد» ومتاح للشحن' }
+          out: 'الأمر «معتمد» ومتاح للشحن' },
+        { lc: true, page: 'lcs', need: 'edit', icon: 'bank', title: 'فتح الاعتماد البنكي', who: 'الاعتمادات البنكية',
+          what: 'إذا طريقة الدفع L/C: رقم الاعتماد، البنك، المبلغ، نوع الدفع (اطلاع / آجل)، آخر موعد شحن، الصلاحية، وربطه بأمر شراء أو أكثر — والأمر ممكن يتوزع على أكثر من اعتماد. أي تمديد أو زيادة مبلغ تُسجّل «تعديل».',
+          out: 'رصيد متاح يغطي الأمر ويظهر في نافذة الشحن' }
       ]
     },
     {
@@ -28,8 +31,8 @@
           what: 'تسجيل نتيجة الفحص والجهة (مجتاز / مرفوض / معفى).',
           gate: 'ما يتعمّد الشحن إلا بفحص «مجتاز» أو «معفى»' },
         { page: 'shipments', need: 'full', icon: 'ship', title: 'تعميد الشحن', who: 'طلبات الشحن (صلاحية كاملة)',
-          what: 'تاريخ الشحن، ميناء الوصول، رقم الاعتماد، فترة السماح.',
-          gate: 'كل الحقول مطلوبة',
+          what: 'تاريخ الشحن، ميناء الوصول، رقم اعتماد الشحن، فترة السماح — ولأوامر L/C اختيار الاعتماد البنكي.',
+          gate: 'كل الحقول مطلوبة + لأوامر L/C: اعتماد ساري، الشحن قبل آخر موعد فيه، ورصيده يكفي قيمة الشحنة',
           out: 'رقم تسلسل + سطور الحاويات تنعمل تلقائيًا' }
       ]
     },
@@ -38,6 +41,10 @@
       steps: [
         { page: 'shipped', need: 'edit', icon: 'track', title: 'متابعة الشحنة', who: 'البضاعة المشحونة',
           what: 'الوصول المتوقع، الوسيط، المخلص الجمركي.', out: 'تظهر في «الوصول خلال 14 يوم»' },
+        { lc: true, page: 'lcs', need: 'edit', icon: 'docs', title: 'تقديم المستندات للبنك', who: 'الاعتمادات البنكية',
+          what: 'بعد التعميد: تسجيل تقديم مستندات الشحنة ومبلغها، والملاحظات (Discrepancies) إن وجدت، ثم القبول أو الرفض.',
+          gate: 'المستندات اللي عليها ملاحظات تظهر تنبيه أحمر في لوحة الإدارة',
+          out: 'عند القبول يتحدد الاستحقاق: اطلاع = فورًا، آجل = تاريخ الشحن + أيام الآجل' },
         { page: 'containers', need: 'edit', icon: 'containers', title: 'أرقام الحاويات والتفريغ', who: 'متابعة الحاويات',
           what: 'رقم كل حاوية وتاريخ تفريغها.',
           out: 'يبدأ عدّ فترة السماح: آخر يوم = التفريغ + فترة السماح' },
@@ -55,6 +62,10 @@
         { page: 'containers', need: 'edit', icon: 'return', title: 'إرجاع الفارغ', who: 'متابعة الحاويات',
           what: 'تاريخ إرجاع الحاوية الفارغة.',
           gate: 'بعد آخر يوم مجاني تبدأ الأرضيات' },
+        { lc: true, page: 'lcs', need: 'edit', icon: 'pay', title: 'سداد الاعتماد', who: 'الاعتمادات البنكية',
+          what: 'تسجيل تاريخ ومبلغ السداد لكل تقديم، والمصاريف البنكية، ثم إقفال الاعتماد.',
+          gate: 'ما يتقفل الاعتماد إلا بعد سداد أو رفض كل المستندات المقدمة',
+          out: 'الاعتماد «مقفل» ✓' },
         { page: 'files', need: 'full', icon: 'lock', title: 'إقفال ملف الشحنة', who: 'ملفات الشحنات (صلاحية كاملة)',
           what: 'المستندات، التكاليف، التكلفة الواصلة لكل موديل.',
           gate: 'بيان مفسوح لكل حاوية + كل الحاويات مستلمة + ما فيه مطالبة مفتوحة',
@@ -76,7 +87,10 @@
     stamp: 'M9 3h6v5l3 4H6l3-4z M5 15h14v3H5z M4 21h16',
     receive: 'M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4 M7 10l5 5 5-5 M12 15V3',
     return: 'M9 14L4 9l5-5 M4 9h11a5 5 0 0 1 0 10h-3',
-    lock: 'M5 11h14v10H5z M8 11V7a4 4 0 0 1 8 0v4 M12 15v2'
+    lock: 'M5 11h14v10H5z M8 11V7a4 4 0 0 1 8 0v4 M12 15v2',
+    bank: 'M3 10l9-6 9 6 M5 10v8 M9.5 10v8 M14.5 10v8 M19 10v8 M3 21h18',
+    docs: 'M8 3h8l4 4v12H8z M15 3v5h5 M4 7v14h11 M11 12h6 M11 15h4',
+    pay: 'M2 6h20v12H2z M2 10h20 M6 15h4'
   };
   const PHASE_VAR = { p1: '--ph1', p2: '--ph2', p3: '--ph3', p4: '--ph4' };
   const VIEW_KEY = 'wf-view';
@@ -195,8 +209,8 @@
       const ly = narrow ? p.y - 4 : p.y + r + 26;
       const anchor = narrow ? 'start' : 'middle';
       return `
-      <g class="node ${mine ? 'mine' : ''} ${artSel === i ? 'sel' : ''}" data-step="${i}" tabindex="0" role="button"
-         aria-label="${i + 1}. ${esc(st.title)}${mine ? '، من صلاحيتك' : ''}">
+      <g class="node ${mine ? 'mine' : ''} ${st.lc ? 'lc' : ''} ${artSel === i ? 'sel' : ''}" data-step="${i}" tabindex="0" role="button"
+         aria-label="${i + 1}. ${esc(st.title)}${st.lc ? ' (عند الدفع باعتماد بنكي)' : ''}${mine ? '، من صلاحيتك' : ''}">
         <title>${esc(st.title)}: ${esc(st.what)}</title>
         <rect class="hit" x="${narrow ? 4 : p.x - colW / 2 + 6}" y="${narrow ? p.y - rowH / 2 + 4 : p.y - r - 14}" width="${narrow ? W - 8 : colW - 12}" height="${narrow ? rowH - 8 : r * 2 + 92}" rx="14"/>
         <circle class="halo" cx="${p.x}" cy="${p.y}" r="${r + 9}"/>
@@ -207,6 +221,7 @@
         <circle class="no-bg" cx="${p.x + r * 0.72}" cy="${p.y - r * 0.72}" r="${narrow ? 10 : 12}"/>
         <text class="no" x="${p.x + r * 0.72}" y="${p.y - r * 0.72 + 4}" text-anchor="middle">${i + 1}</text>
         ${st.gate ? `<g class="gate"><rect x="${p.x - r * 0.72 - 9}" y="${p.y - r * 0.72 - 9}" width="18" height="18" rx="4" transform="rotate(45 ${p.x - r * 0.72} ${p.y - r * 0.72})"/><text x="${p.x - r * 0.72}" y="${p.y - r * 0.72 + 5}" text-anchor="middle">!</text></g>` : ''}
+        ${st.lc ? `<g class="lc-pill"><rect x="${p.x + r * 0.72 - 17}" y="${p.y + r * 0.72 - 9}" width="34" height="18" rx="9"/><text x="${p.x + r * 0.72}" y="${p.y + r * 0.72 + 4}" text-anchor="middle">L/C</text></g>` : ''}
         <text class="t1" x="${lx}" y="${ly}" text-anchor="${anchor}">${esc(st.title)}</text>
         <text class="t2" x="${lx}" y="${ly + (narrow ? 19 : 20)}" text-anchor="${anchor}">${esc(st.who)}</text>
         ${mine && !narrow ? `<text class="t3" x="${lx}" y="${ly + 40}" text-anchor="middle">✓ من صلاحيتك</text>` : ''}
@@ -219,7 +234,7 @@
       <g class="flag end"><circle cx="${last.row % 2 === 0 ? Math.max(14, last.x - colW / 2 + 6) : Math.min(W - 14, last.x + colW / 2 - 6)}" cy="${last.y}" r="9"/><text x="${last.row % 2 === 0 ? Math.max(14, last.x - colW / 2 + 6) : Math.min(W - 14, last.x + colW / 2 - 6)}" y="${last.y - 18}" text-anchor="middle">مقفل ✓</text></g>`;
 
     box.innerHTML = `
-      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="رسم توضيحي لسير العمل من تسجيل الموديل إلى إقفال ملف الشحنة">
+      <svg viewBox="0 0 ${W} ${H}" role="img" aria-label="رسم توضيحي لسير العمل من تسجيل الموديل إلى إقفال ملف الشحنة، مع خطوات الاعتماد البنكي">
         <path class="road" d="${d}"/>
         <path class="road-dash" d="${d}"/>
         ${flags}
@@ -238,7 +253,7 @@
     $('wfArtInfo').innerHTML = `
       <div class="ai-head">
         <span class="ai-no" style="background:var(${PHASE_VAR[st.phase.color]})">${i + 1}</span>
-        <div><b>${esc(st.title)}</b><small>${esc(st.phase.title)} — 📍 ${esc(st.who)}</small></div>
+        <div><b>${esc(st.title)}${st.lc ? ' <span class="tag lc-tag">عند الدفع بـ L/C</span>' : ''}</b><small>${esc(st.phase.title)} — 📍 ${esc(st.who)}</small></div>
         ${mine && can(st.page, 'view') ? `<button type="button" class="btn primary small" data-go="${st.page}">فتح الصفحة</button>` : '<span class="tag gray">لقسم آخر</span>'}
       </div>
       <p>${esc(st.what)}</p>
@@ -257,10 +272,11 @@
           n++;
           const mine = can(st.page, st.need);
           return `
-          <div class="wf-step ${mine ? 'mine' : ''}" ${mine ? `data-go="${st.page}" role="button" tabindex="0"` : ''}>
+          <div class="wf-step ${mine ? 'mine' : ''} ${st.lc ? 'lc' : ''}" ${mine ? `data-go="${st.page}" role="button" tabindex="0"` : ''}>
             <div class="wf-top">
               <span class="wf-no">${n}</span>
               <b>${st.title}</b>
+              ${st.lc ? '<span class="tag lc-tag">L/C</span>' : ''}
               ${mine ? '<span class="tag ok">من صلاحيتك</span>' : ''}
             </div>
             <p class="wf-who">📍 ${st.who}</p>

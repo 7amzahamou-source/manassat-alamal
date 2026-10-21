@@ -651,3 +651,21 @@ table.rt-in td:first-child { font-weight: 600; }
 @media print { .seg, .wf-art-legend { display: none; } }
 .wf-art .hit { fill: transparent; pointer-events: all; }
 .wf-art .node:hover .hit, .wf-art .node:focus-visible .hit { fill: var(--acc-soft); opacity: .45; }
+
+/* ===== الاعتمادات البنكية ===== */
+#lcSummary { width: 440px; }
+.totals .neg { color: var(--bad); }
+.lc-pres input[type="date"] { min-width: 132px; }
+.lc-pres input[type="text"] { min-width: 150px; }
+.lc-pres input[type="number"] { min-width: 100px; }
+#sdLcInfo { display: block; margin-top: 6px; }
+
+/* خطوات الاعتماد البنكي في سير العمل */
+.wf-art .node.lc .halo { stroke-dasharray: 5 4; }
+.wf-art .lc-pill rect { fill: var(--red); stroke: var(--panel); stroke-width: 2; }
+.wf-art .lc-pill text { fill: #fff; font-size: 10px; font-weight: 700; }
+.lg-lc { background: var(--red); color: #fff; border-radius: 9px; padding: 0 6px; font-style: normal; font-size: 10px; font-weight: 700; line-height: 16px; }
+.tag.lc-tag { background: rgba(229,50,42,.12); color: var(--red); font-size: 11px; padding: 1px 8px; vertical-align: middle; }
+.wf-step.lc { border-style: dashed; }
+.wf-step.lc:not(.mine) { border-color: rgba(229,50,42,.45); }
+.wf-dot.lc { border-style: dashed; border-color: var(--red); }

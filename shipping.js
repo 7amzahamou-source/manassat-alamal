@@ -56,7 +56,7 @@
 
     // نافذة بيانات الشحن
     $('shipForm').addEventListener('submit', e => { e.preventDefault(); saveShip(); });
-    $('shipForm').addEventListener('input', () => { $('sdError').textContent = ''; });
+    $('shipForm').addEventListener('input', () => { $('sdError').textContent = ''; lcInfo(); });
     $('sdConfirmBtn').addEventListener('click', confirmShip);
     $('sdUnconfirmBtn').addEventListener('click', unconfirmShip);
     $('sdDeleteBtn').addEventListener('click', deleteShip);
@@ -113,7 +113,7 @@
         <td class="num">${num(s.totalContainers) || '—'}</td>
         <td>${esc(s.readyDate)}</td>
         <td>${inspTag(s.inspection)}</td>
-        <td>${stateTag(s.state)}</td>
+        <td>${stateTag(s.state)}${s.payMethod === 'L/C' && !s.lcId ? ' <span class="tag bad" title="أمر الشراء طريقة دفعه L/C ولم يُربط باعتماد">بدون L/C</span>' : ''}</td>
       </tr>`).join('');
   }
 
@@ -204,7 +204,12 @@
       nsTotals();
       return;
     }
-    $('nsPoInfo').textContent = `${po.supplier} — ${po.department} — تاريخ الأمر ${po.date}`;
+    $('nsPoInfo').textContent = `${po.supplier} — ${po.department} — تاريخ الأمر ${po.date} — الدفع ${po.payMethod || '—'}`;
+    const lcs = po.lcs || [];
+    $('nsLcWrap').classList.toggle('hide', !lcs.length && po.payMethod !== 'L/C');
+    $('ns_lc').innerHTML = (lcs.length ? '<option value="">بدون — أربطه لاحقًا</option>' : '<option value="">لا يوجد اعتماد مفتوح لهذا الأمر — افتحه من «الاعتمادات البنكية»</option>') +
+      lcs.map(l => `<option value="${esc(l.id)}">${esc(l.lcNo)} — ${esc(l.bank)} — متاح ${money(l.available, l.currency)}</option>`).join('');
+    if (lcs.length === 1) $('ns_lc').value = lcs[0].id;
     lines = po.lines.map(l => ({ ...l, qty: '', containers: '' }));
     $('nsLines').innerHTML = lines.map((l, n) => `
       <tr>
@@ -249,6 +254,7 @@
       port: $('ns_port').value,
       readyDate: $('ns_ready').value,
       notes: $('ns_notes').value,
+      lcId: $('ns_lc').value,
       lines: lines.filter(l => Number(l.qty) > 0).map(l => ({ model: l.model, qty: l.qty, containers: l.containers }))
     };
     if (!payload.lines.length) { $('nsError').textContent = 'حدد كمية لموديل واحد على الأقل.'; return; }
@@ -287,6 +293,13 @@
 
     SD_FIELDS.forEach(f => { $('sd_' + f).value = s[f] ?? ''; });
     if (!s.freight) $('sd_freight').value = '';
+    const lcs = (s.lcChoices || []).slice();
+    if (s.lcId && !lcs.some(l => l.id === s.lcId)) lcs.unshift({ id: s.lcId, lcNo: s.lcNo || 'اعتماد مقفل', bank: '' });
+    $('sdLcWrap').classList.toggle('hide', !lcs.length && s.payMethod !== 'L/C');
+    $('sd_lcId').innerHTML = '<option value="">' + (lcs.length ? 'بدون' : 'لا يوجد اعتماد مفتوح يغطي أمر الشراء') + '</option>' +
+      lcs.map(l => `<option value="${esc(l.id)}">${esc(l.lcNo)}${l.bank ? ' — ' + esc(l.bank) : ''}</option>`).join('');
+    $('sd_lcId').value = s.lcId || '';
+    lcInfo();
     $('sdReadyWrap').classList.toggle('hide', isShipped);
     document.querySelectorAll('#shipForm .grid input, #shipForm .grid select').forEach(el => { el.disabled = !editable; });
 
@@ -306,7 +319,25 @@
   function readShip() {
     const s = { id: current.id };
     SD_FIELDS.forEach(f => { s[f] = $('sd_' + f).value; });
+    if (!$('sdLcWrap').classList.contains('hide')) s.lcId = $('sd_lcId').value;
     return s;
+  }
+
+  /** معلومات الاعتماد المختار: الرصيد وآخر موعد شحن والصلاحية */
+  function lcInfo() {
+    if (!current) return;
+    const l = (current.lcChoices || []).find(x => x.id === $('sd_lcId').value);
+    const need = current.payMethod === 'L/C';
+    if (!l) {
+      $('sdLcInfo').innerHTML = need ? '<span class="tag bad">أمر الشراء L/C: التعميد يحتاج اعتماد بنكي صالح</span>' : '';
+      return;
+    }
+    const ship = $('sd_shipDate').value;
+    const warn = [];
+    if (l.expiry && l.expiry < today()) warn.push('الاعتماد منتهي');
+    if (ship && l.latestShip && ship > l.latestShip) warn.push('تاريخ الشحن بعد آخر موعد في الاعتماد');
+    $('sdLcInfo').innerHTML = `المتاح ${money(l.available, l.currency)} — آخر شحن ${esc(l.latestShip || '—')} — الصلاحية ${esc(l.expiry || '—')}` +
+      warn.map(w => ` <span class="tag bad">${w}</span>`).join('');
   }
 
   /** يحدّث الشحنة في القائمة المناسبة بعد أي عملية */

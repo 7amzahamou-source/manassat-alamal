@@ -206,6 +206,16 @@
     }
     $('dlgMeta').textContent = meta;
 
+    // الاعتمادات البنكية المرتبطة بالأمر
+    const lcs = o.lcs || [];
+    const covered = lcs.reduce((t, l) => t + (Number(l.amount) || 0), 0);
+    $('odLcs').classList.toggle('hide', !order || (!lcs.length && o.payMethod !== 'L/C'));
+    $('odLcs').innerHTML = !order ? '' : `<h3 class="fh">الاعتمادات البنكية</h3>` + (lcs.length
+      ? `<div class="table-wrap"><table class="items"><thead><tr><th>رقم الاعتماد</th><th>البنك</th><th>المخصص لهذا الأمر</th><th>الحالة</th></tr></thead><tbody>` +
+        lcs.map(l => `<tr><td><b dir="ltr">${esc(l.lcNo)}</b></td><td>${esc(l.bank)}</td><td class="num">${money(l.amount, l.currency)}</td><td><span class="tag ${l.state === 'منتهي' ? 'bad' : l.state === 'مقفل' ? 'gray' : 'ok'}">${esc(l.state)}</span></td></tr>`).join('') +
+        `</tbody></table></div><p class="meta">مغطى ${money(covered)} من ${money(o.totalValue, o.currency)} (${o.totalValue ? Math.round(covered / o.totalValue * 100) : 0}%)</p>`
+      : '<p class="warn">طريقة الدفع L/C ولا يوجد اعتماد بنكي مربوط بهذا الأمر بعد — افتحه من صفحة «الاعتمادات البنكية».</p>');
+
     items = (o.items || []).map(i => ({ ...i, _cManual: Number(i.containers) > 0 }));
     if (!items.length) items.push({});
     drawItems();

@@ -87,7 +87,7 @@
     ];
     $('rpSummary').innerHTML = tiles.map(t => `<div class="rp-tile ${t[0]}"><small>${t[1]}</small><b>${t[2]}</b><span>${t[3]}</span></div>`).join('');
     $('rpToc').innerHTML = tiles.slice(0, 7).map(t => `<a href="#" data-to="${t[4]}">${t[1]}</a>`).join('') +
-      '<a href="#" data-to="rp-wh">حسب المستودع</a><a href="#" data-to="rp-rates">أسعار الشحن</a>';
+      '<a href="#" data-to="rp-wh">حسب المستودع</a><a href="#" data-to="rp-lcs">الاعتمادات البنكية</a><a href="#" data-to="rp-rates">أسعار الشحن</a>';
 
     const html = [
       goods('rp-mfg', '1. البضائع قيد التصنيع', 'طلبات شحن تاريخ جاهزيتها لم يحن بعد', d.goods.mfg,
@@ -109,6 +109,7 @@
       section('rp-wh', '8. الحاويات حسب المستودع', 'كل الحاويات المستلمة', ['المستودع', 'الحاويات المستلمة', 'منها لم يُرجع فارغها', 'الكمية المستلمة', 'الموديلات'], d.warehouses,
         w => `<tr>${td(`<b>${esc(w.warehouse)}</b>`)}${td(num(w.containers), 'num')}${td(num(w.notReturned), 'num')}${td(num(w.qty), 'num')}${td(w.models.slice(0, 6).map(m => `<span dir="ltr">${esc(m.model)}</span>: ${num(m.qty)}`).join('، ') + (w.models.length > 6 ? '…' : ''), 'wh-models')}</tr>`,
         list => `${td('الإجمالي')}${td(num(list.reduce((t, w) => t + w.containers, 0)), 'num')}${td(num(list.reduce((t, w) => t + w.notReturned, 0)), 'num')}${td(num(list.reduce((t, w) => t + w.qty, 0)), 'num')}${td('')}`),
+      lcsSection(d.lcs || [], d.today),
       ratesSection(d.rates)
     ];
     $('rpBody').innerHTML = html.join('');
@@ -123,10 +124,18 @@
     return `<span class="${diff > 0 ? 'chg-up' : 'chg-down'}">${diff > 0 ? '▲ +' : '▼ '}${num(diff)} (${pct > 0 ? '+' : ''}${pct}%)</span>`;
   }
 
+  function lcsSection(rows, today) {
+    const lcTag = r => `<span class="tag ${r.state === 'منتهي' ? 'bad' : r.state === 'مفتوح' ? 'ok' : 'gray'}">${esc(r.state)}</span>`;
+    const exp = r => `${esc(r.expiry || '—')}${r.state !== 'منتهي' && r.daysToExpiry != null && r.daysToExpiry <= 15 ? ` <span class="tag wait">${r.daysToExpiry} يوم</span>` : ''}`;
+    const due = r => r.nextDue ? `${esc(r.nextDue)}${r.nextDue < today ? ' <span class="tag bad">متأخر</span>' : ''}` : '—';
+    return section('rp-lcs', '9. الاعتمادات البنكية القائمة', 'كل الاعتمادات غير المقفلة', ['رقم الاعتماد', 'البنك', 'أوامر الشراء', 'الدفع', 'المبلغ', 'المستخدم', 'المتاح', 'المسدد', 'آخر شحن', 'الصلاحية', 'الاستحقاق القادم', 'الحالة'], rows,
+      r => `<tr>${td(`<b>${ltr(r.lcNo)}</b>`)}${td(esc(r.bank))}${td(esc(r.pos))}${td(esc(r.payType))}${td(money(r.amount, r.currency), 'num')}${td(money(r.used), 'num')}${td(`<b>${money(r.available)}</b>`, 'num')}${td(money(r.paid), 'num')}${td(esc(r.latestShip || '—'))}${td(exp(r))}${td(due(r))}${td(lcTag(r))}</tr>`);
+  }
+
   function ratesSection(r) {
     const rows = r.latest;
     const price = x => x ? `<b class="num">$${num(x.value)}</b>` : '—';
-    return section('rp-rates', '9. أسعار الشحن (USD / حاوية)', r.lastDate ? 'آخر تحديث ' + r.lastDate : 'لم تُسجّل أسعار بعد',
+    return section('rp-rates', '10. أسعار الشحن (USD / حاوية)', r.lastDate ? 'آخر تحديث ' + r.lastDate : 'لم تُسجّل أسعار بعد',
       ['ميناء الشحن'].concat(...RATE_DESTS.map(([, name]) => [name, 'التغيّر']), ['تاريخ السعر']), rows,
       x => `<tr>${td(`<b>${esc(x.port)}</b>`)}${RATE_DESTS.map(([k]) => td(price(x[k])) + td(change(x[k]))).join('')}${td(esc(RATE_DESTS.map(([k]) => x[k] && x[k].date).filter(Boolean).sort().pop() || '—'))}</tr>`);
   }
