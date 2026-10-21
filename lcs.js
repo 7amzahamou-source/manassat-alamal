@@ -3,7 +3,7 @@
  * الاعتماد يغطي أمر شراء أو أكثر، والأمر ممكن يكون له أكثر من اعتماد.
  */
 (function () {
-  const FIELDS = ['lcNo', 'bank', 'supplier', 'currency', 'amount', 'tolerance', 'payType', 'usanceDays',
+  const FIELDS = ['lcNo', 'bank', 'supplier', 'currency', 'amount', 'tolerance', 'incoterm', 'payType', 'usanceDays',
     'issueDate', 'latestShipDate', 'expiryDate', 'presentationDays', 'partial', 'notes'];
   const PRES_STATES = ['مقدمة', 'بها ملاحظات', 'مقبولة', 'مرفوضة'];
   const SHIPPED = 'تم الشحن';
@@ -82,14 +82,14 @@
   async function load() {
     lcs = [];
     $('lcStats').innerHTML = '';
-    $('lcBody').innerHTML = '<tr><td colspan="12" class="empty">جارٍ التحميل…</td></tr>';
+    $('lcBody').innerHTML = '<tr><td colspan="13" class="empty">جارٍ التحميل…</td></tr>';
     try {
       const r = await API.listLcs();
       lcs = r.lcs || [];
       poOptions = r.poOptions || [];
       render();
     } catch (err) {
-      $('lcBody').innerHTML = `<tr><td colspan="12" class="empty">${esc(err.message)}</td></tr>`;
+      $('lcBody').innerHTML = `<tr><td colspan="13" class="empty">${esc(err.message)}</td></tr>`;
     }
   }
 
@@ -97,7 +97,7 @@
     const q = $('lcSearch').value.trim().toLowerCase();
     const st = $('lcFilterState').value;
     const list = lcs.filter(l =>
-      (!q || [l.lcNo, l.bank, l.supplier, (l.pos || []).map(p => p.poNo).join(' ')].join(' ').toLowerCase().includes(q)) &&
+      (!q || [l.lcNo, l.bank, l.supplier, l.incoterm, (l.pos || []).map(p => p.poNo).join(' ')].join(' ').toLowerCase().includes(q)) &&
       (!st || (st === 'active' ? l.state !== 'مقفل' : l.state === st)));
 
     const active = lcs.filter(l => l.state !== 'مقفل');
@@ -115,7 +115,7 @@
     if (!list.length) {
       const msg = lcs.length ? 'لا توجد اعتمادات مطابقة.'
         : can('lcs', 'edit') ? 'لا توجد اعتمادات. اضغط «اعتماد جديد» واربطه بأمر شراء معتمد.' : 'لا توجد اعتمادات.';
-      $('lcBody').innerHTML = `<tr><td colspan="12" class="empty">${msg}</td></tr>`;
+      $('lcBody').innerHTML = `<tr><td colspan="13" class="empty">${msg}</td></tr>`;
       return;
     }
     $('lcBody').innerHTML = list.map(l => `
@@ -124,6 +124,7 @@
         <td>${esc(l.bank)}</td>
         <td>${esc(l.supplier || '—')}</td>
         <td>${esc((l.pos || []).map(p => p.poNo).join('، '))}</td>
+        <td><b dir="ltr">${esc(l.incoterm || '—')}</b></td>
         <td>${esc(l.payType)}${l.payType === 'آجل' ? ' ' + num(l.usanceDays) + ' يوم' : ''}</td>
         <td class="num">${money(l.effAmount, l.currency)}</td>
         <td class="num">${money(l.used)}</td>
@@ -190,6 +191,7 @@
     if (!pos[i].amount) pos[i].amount = Math.max(0, r2(po.totalValue - otherCover(po)));
     if (!$('lc_supplier').value) $('lc_supplier').value = po.supplier;
     if (pos.filter(p => p.poId).length === 1) $('lc_currency').value = po.currency;
+    if (!$('lc_incoterm').value && po.incoterm) $('lc_incoterm').value = String(po.incoterm).replace('C&F', 'CFR');
   }
 
   function drawPos() {
@@ -277,6 +279,10 @@
 
   /** الملخص: المبلغ بعد التعديلات، المخصص، المستخدم، المتاح */
   function summary() {
+    // تنبيه إذا شرط التسليم يختلف عن أوامر الشراء المربوطة
+    const inc = $('lc_incoterm').value;
+    const diff = pos.map(p => poOptions.find(o => o.id === p.poId)).filter(o => o && o.incoterm && inc && o.incoterm !== inc);
+    $('lcIncWarn').innerHTML = diff.length ? `<span class="tag wait">يختلف عن أمر الشراء: ${diff.map(o => esc(o.poNo) + ' (' + esc(o.incoterm) + ')').join('، ')}</span>` : '';
     const cur = $('lc_currency').value;
     const amount = n($('lc_amount').value) + amds.reduce((t, a) => t + n(a.amountDelta), 0);
     const limit = amount * (1 + n($('lc_tolerance').value) / 100);

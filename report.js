@@ -128,8 +128,8 @@
     const lcTag = r => `<span class="tag ${r.state === 'منتهي' ? 'bad' : r.state === 'مفتوح' ? 'ok' : 'gray'}">${esc(r.state)}</span>`;
     const exp = r => `${esc(r.expiry || '—')}${r.state !== 'منتهي' && r.daysToExpiry != null && r.daysToExpiry <= 15 ? ` <span class="tag wait">${r.daysToExpiry} يوم</span>` : ''}`;
     const due = r => r.nextDue ? `${esc(r.nextDue)}${r.nextDue < today ? ' <span class="tag bad">متأخر</span>' : ''}` : '—';
-    return section('rp-lcs', '9. الاعتمادات البنكية القائمة', 'كل الاعتمادات غير المقفلة', ['رقم الاعتماد', 'البنك', 'أوامر الشراء', 'الدفع', 'المبلغ', 'المستخدم', 'المتاح', 'المسدد', 'آخر شحن', 'الصلاحية', 'الاستحقاق القادم', 'الحالة'], rows,
-      r => `<tr>${td(`<b>${ltr(r.lcNo)}</b>`)}${td(esc(r.bank))}${td(esc(r.pos))}${td(esc(r.payType))}${td(money(r.amount, r.currency), 'num')}${td(money(r.used), 'num')}${td(`<b>${money(r.available)}</b>`, 'num')}${td(money(r.paid), 'num')}${td(esc(r.latestShip || '—'))}${td(exp(r))}${td(due(r))}${td(lcTag(r))}</tr>`);
+    return section('rp-lcs', '9. الاعتمادات البنكية القائمة', 'كل الاعتمادات غير المقفلة', ['رقم الاعتماد', 'البنك', 'أوامر الشراء', 'الشرط', 'الدفع', 'المبلغ', 'المستخدم', 'المتاح', 'المسدد', 'آخر شحن', 'الصلاحية', 'الاستحقاق القادم', 'الحالة'], rows,
+      r => `<tr>${td(`<b>${ltr(r.lcNo)}</b>`)}${td(esc(r.bank))}${td(esc(r.pos))}${td(ltr(r.incoterm))}${td(esc(r.payType))}${td(money(r.amount, r.currency), 'num')}${td(money(r.used), 'num')}${td(`<b>${money(r.available)}</b>`, 'num')}${td(money(r.paid), 'num')}${td(esc(r.latestShip || '—'))}${td(exp(r))}${td(due(r))}${td(lcTag(r))}</tr>`);
   }
 
   function ratesSection(r) {

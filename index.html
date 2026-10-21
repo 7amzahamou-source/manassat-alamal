@@ -540,7 +540,7 @@
               <table>
                 <thead>
                   <tr>
-                    <th>رقم الاعتماد</th><th>البنك</th><th>المورد</th><th>أوامر الشراء</th><th>الدفع</th>
+                    <th>رقم الاعتماد</th><th>البنك</th><th>المورد</th><th>أوامر الشراء</th><th>الشرط</th><th>الدفع</th>
                     <th>المبلغ</th><th>المستخدم</th><th>المتاح</th><th>آخر شحن</th><th>الصلاحية</th>
                     <th>الاستحقاق القادم</th><th>الحالة</th>
                   </tr>
@@ -947,6 +947,23 @@
           </div>
           <div><label for="lc_amount">مبلغ الاعتماد *</label><input id="lc_amount" type="number" min="0" step="0.01" required></div>
           <div><label for="lc_tolerance">نسبة التجاوز المسموحة ±%</label><input id="lc_tolerance" type="number" min="0" max="20" step="any" placeholder="0"></div>
+          <div>
+            <label for="lc_incoterm">شرط التسليم (Incoterm) *</label>
+            <select id="lc_incoterm" required>
+              <option value="">اختر</option>
+              <option value="EXW">EXW — من المصنع</option>
+              <option value="FCA">FCA — تسليم للناقل</option>
+              <option value="FOB">FOB — على ظهر السفينة</option>
+              <option value="CFR">CFR (C&amp;F) — التكلفة والشحن</option>
+              <option value="CIF">CIF — التكلفة والتأمين والشحن</option>
+              <option value="CPT">CPT — أجرة النقل مدفوعة</option>
+              <option value="CIP">CIP — النقل والتأمين مدفوعان</option>
+              <option value="DAP">DAP — التسليم في المكان</option>
+              <option value="DPU">DPU — التسليم بعد التفريغ</option>
+              <option value="DDP">DDP — التسليم مع دفع الرسوم</option>
+            </select>
+            <small id="lcIncWarn" class="sub"></small>
+          </div>
           <div>
             <label for="lc_payType">نوع الدفع</label>
             <select id="lc_payType"><option>اطلاع</option><option>آجل</option></select>
