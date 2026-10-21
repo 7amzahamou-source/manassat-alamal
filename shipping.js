@@ -43,16 +43,28 @@
 
     // نافذة طلب جديد
     $('ns_po').addEventListener('change', pickPo);
-    $('nsLines').addEventListener('input', e => {
-      const { n, f } = e.target.dataset;
-      if (n === undefined) return;
-      lines[n][f] = e.target.value;
-      if (f === 'containers') lines[n]._cManual = e.target.value !== '';
-      if (f === 'qty') autoContainers(Number(n));
+    $('nsLines').addEventListener('input', onLineInput);
+    $('nsLines').addEventListener('click', e => {
+      const b = e.target.closest('[data-all]');
+      if (!b) return;
+      const n = Number(b.dataset.all);
+      const l = lines[n];
+      l.qty = l.available; l._qAuto = false;
+      $('nsq' + n).value = l.available;
+      autoContainers(n, true);
       nsTotals();
     });
+    $('nsSearch').addEventListener('input', nsFilter);
+    $('nsHideZero').addEventListener('change', nsFilter);
+    $('nsPasteBtn').addEventListener('click', () => {
+      $('nsPaste').classList.toggle('hide');
+      if (!$('nsPaste').classList.contains('hide')) $('nsPasteText').focus();
+    });
+    $('nsPasteCancel').addEventListener('click', () => { $('nsPaste').classList.add('hide'); $('nsPasteText').value = ''; $('nsPasteMsg').textContent = ''; });
+    $('nsPasteApply').addEventListener('click', applyPaste);
+    $('nsOpenLcBtn').addEventListener('click', () => { $('newShipDialog').close(); goTo('lcs'); });
     $('newShipForm').addEventListener('submit', createShipment);
-    $('newShipForm').addEventListener('input', () => { $('nsError').textContent = ''; });
+
 
     // نافذة بيانات الشحن
     $('shipForm').addEventListener('submit', e => { e.preventDefault(); saveShip(); });
@@ -172,17 +184,24 @@
 
   /* ===== طلب شحن جديد ===== */
 
+  const NS_EMPTY = msg => `<tr><td colspan="4" class="empty">${msg}</td></tr>`;
+  const normModel = v => String(v || '').toLowerCase().replace(/[\s\-_/.]/g, '');
+
   async function openNew() {
     poOptions = [];
     lines = [];
     $('newShipForm').reset();
     $('ns_ready').value = today();
+    $('nsHideZero').checked = true;
     $('nsError').textContent = '';
-    $('nsPoInfo').textContent = '';
+    $('nsPoChips').classList.add('hide');
     $('nsLcWrap').classList.add('hide');
+    $('nsPaste').classList.add('hide');
+    $('nsPasteMsg').textContent = '';
+    $('nsHidden').textContent = '';
     $('nsPortsList').innerHTML = $('portsList').innerHTML;
     $('ns_po').innerHTML = '<option value="">جارٍ تحميل أوامر الشراء…</option>';
-    $('nsLines').innerHTML = '<tr><td colspan="7" class="empty">اختر أمر الشراء.</td></tr>';
+    $('nsLines').innerHTML = NS_EMPTY('اختر أمر الشراء.');
     nsTotals();
     $('newShipDialog').showModal();
     try {
@@ -199,57 +218,164 @@
   function pickPo() {
     const po = poOptions.find(o => o.id === $('ns_po').value);
     $('nsError').textContent = '';
+    $('nsSearch').value = '';
     if (!po) {
       lines = [];
-      $('nsPoInfo').textContent = '';
+      $('nsPoChips').classList.add('hide');
       $('nsLcWrap').classList.add('hide');
-      $('nsLines').innerHTML = '<tr><td colspan="7" class="empty">اختر أمر الشراء.</td></tr>';
+      $('nsLines').innerHTML = NS_EMPTY('اختر أمر الشراء.');
+      $('nsHidden').textContent = '';
       nsTotals();
       return;
     }
-    $('nsPoInfo').textContent = `${po.supplier} — ${po.department} — تاريخ الأمر ${po.date} — ${po.incoterm || ''} — الدفع ${po.payMethod || '—'}` +
-      ((po.ports || []).length ? ` — موانئ الشحن: ${po.ports.join('، ')}` : '');
-    // موانئ أمر الشراء أولًا في الاقتراحات، وإذا ميناء واحد يتعبّى تلقائيًا
+
+    // معلومات الأمر كشارات
+    const chip = (k, v, cls) => v ? `<span class="po-chip ${cls || ''}"><small>${k}</small>${v}</span>` : '';
+    $('nsPoChips').innerHTML = [
+      chip('المورد', esc(po.supplier)), chip('القسم', esc(po.department)), chip('تاريخ الأمر', esc(po.date)),
+      chip('الشرط', `<b dir="ltr">${esc(po.incoterm || '—')}</b>`),
+      chip('الدفع', `<b dir="ltr">${esc(po.payMethod || '—')}</b>`, po.payMethod === 'L/C' ? 'lc' : ''),
+      chip('موانئ الشحن', `<b dir="ltr">${esc((po.ports || []).join(' · ') || '—')}</b>`)
+    ].join('');
+    $('nsPoChips').classList.remove('hide');
+
+    // الموانئ: موانئ الأمر أولًا، وإذا ميناء واحد يتعبّى تلقائيًا
     const all = [...$('portsList').options].map(o => o.value);
     $('nsPortsList').innerHTML = [...new Set((po.ports || []).concat(all))].map(p => `<option value="${esc(p)}">`).join('');
     if ((po.ports || []).length && !(po.ports || []).includes($('ns_port').value.trim().toUpperCase())) $('ns_port').value = po.ports[0];
+
+    // الاعتماد البنكي: يظهر لأوامر L/C أو إذا فيه اعتماد يغطي الأمر
     const lcs = po.lcs || [];
     $('nsLcWrap').classList.toggle('hide', !lcs.length && po.payMethod !== 'L/C');
-    $('ns_lc').innerHTML = (lcs.length ? '<option value="">بدون — أربطه لاحقًا</option>' : '<option value="">لا يوجد اعتماد مفتوح لهذا الأمر — افتحه من «الاعتمادات البنكية»</option>') +
+    $('ns_lc').classList.toggle('hide', !lcs.length);
+    $('ns_lc').previousElementSibling.classList.toggle('hide', !lcs.length);
+    $('nsLcNone').classList.toggle('hide', !!lcs.length);
+    $('nsOpenLcBtn').classList.toggle('hide', !can('lcs', 'edit'));
+    $('ns_lc').innerHTML = '<option value="">بدون — أربطه لاحقًا</option>' +
       lcs.map(l => `<option value="${esc(l.id)}">${esc(l.lcNo)} — ${esc(l.bank)} — متاح ${money(l.available, l.currency)}</option>`).join('');
     if (lcs.length === 1) $('ns_lc').value = lcs[0].id;
+
     lines = po.lines.map(l => ({ ...l, qty: '', containers: '' }));
-    $('nsLines').innerHTML = lines.map((l, n) => `
-      <tr>
-        <td><b dir="ltr">${esc(l.model)}</b></td>
-        <td>${esc(l.description || '—')}</td>
-        <td class="num">${num(l.ordered)}</td>
-        <td class="num">${num(l.requested) || '—'}</td>
-        <td class="num"><b>${num(l.available)}</b></td>
-        <td>${l.available > 0
-          ? `<input data-n="${n}" data-f="qty" class="qty-in" type="number" min="0" max="${l.available}" step="any" placeholder="حتى ${num(l.available)}">`
+    $('nsLines').innerHTML = lines.map((l, n) => {
+      const has = l.available > 0;
+      return `
+      <tr data-n="${n}" class="${has ? '' : 'zero'}">
+        <td class="m-cell"><b dir="ltr">${esc(l.model)}</b><small>${esc(l.description || '')}</small></td>
+        <td class="a-cell"><b>${num(l.available)}</b><small>من ${num(l.ordered)}${l.requested ? ' · طُلب ' + num(l.requested) : ''}</small></td>
+        <td>${has ? `<div class="q-cell">
+            <input id="nsq${n}" data-n="${n}" data-f="qty" type="number" min="0" max="${l.available}" step="any" inputmode="decimal" placeholder="الكمية" aria-label="الكمية المطلوبة ${esc(l.model)}">
+            <button type="button" class="btn small" data-all="${n}" title="تعبئة كل المتاح">الكل</button></div>`
           : '<span class="tag gray">لا يوجد متاح</span>'}</td>
-        <td>${l.available > 0 ? `<input data-n="${n}" data-f="containers" id="nsc${n}" type="number" min="0" step="1">` : '—'}</td>
-      </tr>`).join('');
+        <td>${has ? `<input id="nsc${n}" data-n="${n}" data-f="containers" type="number" min="0" step="1" inputmode="numeric" placeholder="حاويات" aria-label="الحاويات ${esc(l.model)}">
+            ${l.perContainer ? `<small class="per">${num(l.perContainer)} / حاوية</small>` : ''}` : '—'}</td>
+      </tr>`;
+    }).join('');
+    nsFilter();
+    nsTotals();
+  }
+
+  function onLineInput(e) {
+    const { n, f } = e.target.dataset;
+    if (n === undefined) return;
+    const i = Number(n);
+    const l = lines[i];
+    l[f] = e.target.value;
+    if (f === 'qty') {
+      l._qAuto = false;
+      autoContainers(i);
+    } else if (f === 'containers') {
+      l._cManual = e.target.value !== '';
+      // التعبئة بالحاويات: الكمية = الحاويات × الكمية في الحاوية (إذا الكمية فاضية أو محسوبة تلقائيًا)
+      if (l.perContainer > 0 && (l.qty === '' || l._qAuto)) {
+        const c = Number(l.containers) || 0;
+        l.qty = c > 0 ? Math.min(c * l.perContainer, l.available) : '';
+        l._qAuto = true;
+        $('nsq' + i).value = l.qty;
+      }
+    }
     nsTotals();
   }
 
   /** الحاويات: بنسبة حاويات البند في أمر الشراء، أو من الكمية في الحاوية بقاعدة الموديلات */
-  function autoContainers(n) {
+  function autoContainers(n, force) {
     const l = lines[n];
-    if (l._cManual) return;
+    if (l._cManual && !force) return;
+    if (force) l._cManual = false;
     const q = Number(l.qty) || 0;
     let c = '';
-    if (q > 0 && l.itemContainers > 0 && l.ordered > 0) c = Math.ceil(q * l.itemContainers / l.ordered);
-    else if (q > 0 && l.perContainer > 0) c = Math.ceil(q / l.perContainer);
+    if (q > 0 && l.perContainer > 0) c = Math.ceil(q / l.perContainer);
+    else if (q > 0 && l.itemContainers > 0 && l.ordered > 0) c = Math.ceil(q * l.itemContainers / l.ordered);
     l.containers = c;
     const el = $('nsc' + n);
     if (el) el.value = c;
   }
 
+  /** البحث وإخفاء الموديلات اللي ما فيها متاح (المعبّأة تظهر دائمًا) */
+  function nsFilter() {
+    const q = normModel($('nsSearch').value);
+    const hideZero = $('nsHideZero').checked;
+    let hidden = 0;
+    $('nsLines').querySelectorAll('tr[data-n]').forEach(tr => {
+      const l = lines[Number(tr.dataset.n)];
+      const show = (Number(l.qty) > 0) || ((!q || normModel(l.model).includes(q) || normModel(l.description).includes(q)) && !(hideZero && l.available <= 0));
+      tr.classList.toggle('hide', !show);
+      if (!show) hidden++;
+    });
+    const zero = lines.filter(l => l.available <= 0).length;
+    $('nsHidden').textContent = !lines.length ? '' :
+      hidden ? `مخفي ${hidden} موديل${q ? ' (حسب البحث)' : ''}${hideZero && zero ? ` — منها ${zero} بدون كمية متاحة` : ''}.` : '';
+    if (lines.length && hidden === lines.length) $('nsHidden').textContent = 'لا توجد موديلات مطابقة.';
+  }
+
+  /** لصق من Excel: الموديل ثم الكمية في كل سطر */
+  function applyPaste() {
+    const rows = $('nsPasteText').value.split(/\r?\n/).map(r => r.trim()).filter(Boolean);
+    const byKey = {};
+    lines.forEach((l, n) => { byKey[normModel(l.model)] = n; });
+    let filled = 0;
+    const missing = [], over = [];
+    rows.forEach(r => {
+      const m = r.match(/^(.+?)[\t;,\s]+([\d,]+(?:\.\d+)?)\s*$/);
+      if (!m) return;
+      const qty = Number(m[2].replace(/,/g, ''));
+      const model = m[1].split(/\t|;/)[0].trim();
+      if (!(qty > 0)) return;
+      const n = byKey[normModel(model)];
+      if (n === undefined) { missing.push(model); return; }
+      const l = lines[n];
+      if (!(l.available > 0)) { over.push(l.model + ' (لا يوجد متاح)'); return; }
+      l.qty = (Number(l.qty) || 0) + qty;
+      l._qAuto = false;
+      if (l.qty > l.available) over.push(`${l.model} (${num(l.qty)} > ${num(l.available)})`);
+      $('nsq' + n).value = l.qty;
+      autoContainers(n, true);
+      filled++;
+    });
+    nsFilter();
+    nsTotals();
+    $('nsPasteMsg').innerHTML = `تمت تعبئة ${filled} موديل` +
+      (missing.length ? ` — <span class="neg">غير موجود في الأمر: ${esc(missing.join('، '))}</span>` : '') +
+      (over.length ? ` — <span class="neg">راجع: ${esc(over.join('، '))}</span>` : '');
+    if (filled && !missing.length && !over.length) { $('nsPasteText').value = ''; setTimeout(() => $('nsPaste').classList.add('hide'), 1200); }
+  }
+
   function nsTotals() {
-    $('nsQty').textContent = num(lines.reduce((t, l) => t + (Number(l.qty) || 0), 0));
-    $('nsCnt').textContent = num(lines.reduce((t, l) => t + (Number(l.containers) || 0), 0));
+    let qty = 0, cnt = 0, val = 0, models = 0;
+    const over = [];
+    lines.forEach((l, n) => {
+      const q = Number(l.qty) || 0;
+      if (q > 0) { models++; qty += q; cnt += Number(l.containers) || 0; val += q * (Number(l.price) || 0); }
+      const bad = q > l.available;
+      if (bad) over.push(l.model);
+      const el = $('nsq' + n);
+      if (el) el.classList.toggle('over', bad);
+    });
+    const po = poOptions.find(o => o.id === $('ns_po').value);
+    $('nsModels').textContent = num(models);
+    $('nsQty').textContent = num(qty);
+    $('nsCnt').textContent = num(cnt);
+    $('nsVal').textContent = val ? money(val, po ? po.currency : '') : '—';
+    $('nsError').textContent = over.length ? 'الكمية أكبر من المتاح: ' + over.join('، ') : '';
   }
 
   async function createShipment(e) {

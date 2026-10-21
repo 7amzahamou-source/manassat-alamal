@@ -803,7 +803,7 @@
   </dialog>
 
   <!-- ===== نافذة طلب شحن جديد ===== -->
-  <dialog id="newShipDialog">
+  <dialog id="newShipDialog" class="ns-dlg">
     <form id="newShipForm">
       <div class="dlg-head">
         <h2>طلب شحن جديد</h2>
@@ -819,27 +819,54 @@
           <div><label for="ns_port">ميناء التحميل *</label><input id="ns_port" list="nsPortsList" required dir="ltr" placeholder="NINGBO" autocomplete="off"></div>
           <datalist id="nsPortsList"></datalist>
           <div><label for="ns_ready">تاريخ جاهزية البضاعة *</label><input id="ns_ready" type="date" required></div>
-          <div id="nsLcWrap" class="wide hide">
-            <label for="ns_lc">الاعتماد البنكي (L/C)</label>
-            <select id="ns_lc"></select>
-          </div>
           <div class="wide"><label for="ns_notes">ملاحظات</label><input id="ns_notes"></div>
         </div>
-        <p id="nsPoInfo" class="meta"></p>
 
-        <div class="items-head"><h3>الكميات المطلوب شحنها</h3></div>
+        <div id="nsPoChips" class="po-chips hide"></div>
+
+        <div id="nsLcWrap" class="ns-lc hide">
+          <label for="ns_lc">الاعتماد البنكي (L/C)</label>
+          <select id="ns_lc"></select>
+          <div id="nsLcNone" class="warn hide">
+            لا يوجد اعتماد بنكي مفتوح يغطي هذا الأمر — تقدر ترسل الطلب الحين، بس التعميد يحتاج اعتماد.
+            <button type="button" id="nsOpenLcBtn" class="btn small">فتح اعتماد</button>
+          </div>
+        </div>
+
+        <div class="items-head ns-head">
+          <h3>الكميات المطلوب شحنها</h3>
+          <div class="ns-tools">
+            <input id="nsSearch" type="search" placeholder="ابحث بالموديل" dir="ltr" autocomplete="off">
+            <label class="chk"><input id="nsHideZero" type="checkbox" checked> إخفاء اللي ما فيها متاح</label>
+            <button type="button" id="nsPasteBtn" class="btn small">لصق من Excel</button>
+          </div>
+        </div>
+
+        <div id="nsPaste" class="ns-paste hide">
+          <p class="sub small">انسخ عمودين من Excel أو الـ Packing List: <b>الموديل</b> ثم <b>الكمية</b> (كل موديل في سطر)، والصقهم هنا.</p>
+          <textarea id="nsPasteText" rows="5" dir="ltr" placeholder="GWH12AVCNB-S6DTA1A&#9;1200&#10;GWC12AVCNB-S6DTA1A&#9;1200"></textarea>
+          <div class="ns-paste-act">
+            <button type="button" id="nsPasteApply" class="btn small primary">تعبئة الكميات</button>
+            <button type="button" id="nsPasteCancel" class="btn small">إلغاء</button>
+            <span id="nsPasteMsg" class="sub small"></span>
+          </div>
+        </div>
+
         <div class="table-wrap">
-          <table class="items">
-            <thead><tr><th>الموديل</th><th>الوصف</th><th>كمية الأمر</th><th>طُلب سابقًا</th><th>المتاح</th><th>الكمية المطلوبة</th><th>الحاويات</th></tr></thead>
-            <tbody id="nsLines"><tr><td colspan="7" class="empty">اختر أمر الشراء.</td></tr></tbody>
+          <table class="items ns-table">
+            <thead><tr><th>الموديل</th><th>المتاح للشحن</th><th>الكمية المطلوبة</th><th>الحاويات</th></tr></thead>
+            <tbody id="nsLines"><tr><td colspan="4" class="empty">اختر أمر الشراء.</td></tr></tbody>
           </table>
         </div>
-        <div class="totals">
-          <div><span>إجمالي الكمية</span><b id="nsQty">0</b></div>
-          <div class="grand"><span>إجمالي الحاويات</span><b id="nsCnt">0</b></div>
-        </div>
+        <p id="nsHidden" class="sub small"></p>
       </div>
-      <div class="dlg-foot">
+      <div class="dlg-foot ns-foot">
+        <div class="ns-bar">
+          <span><small>موديلات</small><b id="nsModels">0</b></span>
+          <span><small>الكمية</small><b id="nsQty">0</b></span>
+          <span><small>الحاويات</small><b id="nsCnt">0</b></span>
+          <span><small>القيمة</small><b id="nsVal">—</b></span>
+        </div>
         <div id="nsError" class="error"></div>
         <button type="submit" id="nsSaveBtn" class="btn primary">إرسال طلب الشحن</button>
       </div>
