@@ -580,3 +580,74 @@ table.rt-in td:first-child { font-weight: 600; }
   .rp-sec { break-inside: auto; }
   .rp-sec thead { display: table-header-group; }
 }
+
+/* ===== سير العمل: الرسم التوضيحي (SmartArt) ===== */
+#page-workflow { --ph1: #3b3896; --ph2: #c98500; --ph3: #7a5bd1; --ph4: #1b7a43; }
+@media (prefers-color-scheme: dark) { #page-workflow { --ph1: #6f6cd8; --ph2: #c98500; --ph3: #9a80e8; --ph4: #2f9a62; } }
+
+.seg { display: inline-flex; gap: 4px; padding: 4px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 16px; }
+.seg button { border: 0; background: none; padding: 7px 18px; border-radius: 9px; cursor: pointer; color: var(--mute); font-weight: 500; }
+.seg button:hover { color: var(--ink); }
+.seg button.on { background: var(--acc); color: #fff; }
+@media (prefers-color-scheme: dark) { .seg button.on { color: #14132e; } }
+
+.wf-art-card { padding: 20px 22px 18px; }
+
+/* شريط المراحل: أسهم متصلة باتجاه القراءة */
+.wf-chevrons { list-style: none; margin: 0 0 6px; padding: 0; display: flex; gap: 0; }
+.chev {
+  flex: 1; min-width: 0; color: #fff; padding: 10px 30px 10px 22px; background: var(--ph);
+  clip-path: polygon(100% 0, 18px 0, 0 50%, 18px 100%, 100% 100%, calc(100% - 18px) 50%);
+  margin-inline-start: -10px; display: flex; flex-direction: column; line-height: 1.35;
+}
+.chev:first-child { margin-inline-start: 0; clip-path: polygon(100% 0, 18px 0, 0 50%, 18px 100%, 100% 100%); padding-right: 18px; border-radius: 0 12px 12px 0; }
+.chev b { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chev span { font-size: 12.5px; opacity: .85; }
+.chev.p1 { --ph: var(--ph1); } .chev.p2 { --ph: var(--ph2); } .chev.p3 { --ph: var(--ph3); } .chev.p4 { --ph: var(--ph4); }
+
+.wf-art svg { width: 100%; height: auto; display: block; overflow: visible; }
+.wf-art .road { fill: none; stroke: var(--line); stroke-width: 18; stroke-linecap: round; stroke-linejoin: round; }
+.wf-art .road-dash { fill: none; stroke: var(--panel); stroke-width: 2; stroke-dasharray: 8 10; stroke-linecap: round; }
+.wf-art .flag circle { fill: var(--panel); stroke: var(--mute); stroke-width: 3; }
+.wf-art .flag.end circle { fill: var(--ok); stroke: var(--ok); }
+.wf-art .flag text { fill: var(--mute); font-size: 13px; font-weight: 500; }
+.wf-art .flag.end text { fill: var(--ok); }
+
+.wf-art .node { cursor: pointer; outline: none; }
+.wf-art .node .halo { fill: var(--panel); stroke: var(--line); stroke-width: 2; transition: stroke .15s; }
+.wf-art .node.mine .halo { stroke: var(--ok); stroke-width: 3; }
+.wf-art .node:hover .halo, .wf-art .node:focus-visible .halo { stroke: var(--acc); stroke-width: 3; }
+.wf-art .node.sel .halo { stroke: var(--red); stroke-width: 4; }
+.wf-art .node .dot { transition: transform .15s; transform-box: fill-box; transform-origin: center; }
+.wf-art .node:hover .dot { transform: scale(1.05); }
+.wf-art .ico { fill: none; stroke: #fff; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.wf-art .no-bg { fill: var(--panel); stroke: var(--line); stroke-width: 1.5; }
+.wf-art .no { fill: var(--ink); font-size: 12px; font-weight: 600; }
+.wf-art .gate rect { fill: var(--bad); stroke: var(--panel); stroke-width: 2; }
+.wf-art .gate text { fill: #fff; font-size: 13px; font-weight: 700; }
+.wf-art .t1 { fill: var(--ink); font-size: 15px; font-weight: 600; }
+.wf-art .t2 { fill: var(--mute); font-size: 12.5px; }
+.wf-art .t3 { fill: var(--ok); font-size: 12px; font-weight: 500; }
+
+.wf-art-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; padding: 12px 2px 0; border-top: 1px solid var(--line); margin-top: 6px; color: var(--mute); font-size: 13px; }
+.wf-art-legend span { display: flex; align-items: center; gap: 7px; }
+.lg-ring { width: 14px; height: 14px; border-radius: 50%; border: 3px solid var(--ok); display: inline-block; }
+.lg-gate { width: 14px; height: 14px; background: var(--bad); color: #fff; transform: rotate(45deg); border-radius: 3px; display: inline-grid; place-items: center; font-style: normal; font-size: 10px; font-weight: 700; }
+
+.wf-art-info { margin-top: 14px; padding: 14px 16px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; min-height: 54px; }
+.wf-art-info p { margin: 8px 0 0; font-size: 14px; }
+.ai-head { display: flex; align-items: center; gap: 12px; }
+.ai-head > div { flex: 1; min-width: 0; }
+.ai-head b { display: block; font-size: 16px; }
+.ai-head small { color: var(--mute); }
+.ai-no { width: 34px; height: 34px; border-radius: 50%; color: #fff; display: grid; place-items: center; font-weight: 600; flex: none; }
+
+@media (max-width: 720px) {
+  .wf-chevrons { flex-direction: column; gap: 6px; }
+  .chev, .chev:first-child { margin: 0; clip-path: none; border-radius: 10px; padding: 8px 14px; flex-direction: row; justify-content: space-between; }
+  .wf-art .t1 { font-size: 14px; }
+  .wf-art-card { padding: 14px; }
+}
+@media print { .seg, .wf-art-legend { display: none; } }
+.wf-art .hit { fill: transparent; pointer-events: all; }
+.wf-art .node:hover .hit, .wf-art .node:focus-visible .hit { fill: var(--acc-soft); opacity: .45; }

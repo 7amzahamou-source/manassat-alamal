@@ -223,12 +223,32 @@
               <button id="wfBackBtn" class="btn">← رجوع</button>
             </div>
           </div>
-          <div class="wf-legend">
-            <span><i class="wf-dot mine"></i> خطوة من صلاحيتك — اضغطها للانتقال لصفحتها</span>
-            <span><i class="wf-dot"></i> خطوة لقسم آخر</span>
-            <span><i class="wf-dot gate"></i> شرط لازم قبل الانتقال</span>
+          <div class="seg" role="tablist" aria-label="طريقة العرض">
+            <button type="button" role="tab" data-view="art" id="wfTabArt">رسم توضيحي</button>
+            <button type="button" role="tab" data-view="map" id="wfTabMap">تفاصيل الخطوات</button>
           </div>
-          <div id="wfMap" class="wf-map"></div>
+
+          <!-- الرسم التوضيحي (SmartArt) -->
+          <div id="wfArtView" class="card wf-art-card">
+            <ol id="wfChevrons" class="wf-chevrons" aria-label="المراحل"></ol>
+            <div id="wfArt" class="wf-art"></div>
+            <div class="wf-art-legend">
+              <span><i class="lg-ring"></i> من صلاحيتك</span>
+              <span><i class="lg-gate">!</i> شرط لازم قبل الخطوة الجاية</span>
+              <span class="sub small" style="margin:0">اضغط على أي خطوة لعرض تفاصيلها</span>
+            </div>
+            <div id="wfArtInfo" class="wf-art-info" aria-live="polite"></div>
+          </div>
+
+          <!-- تفاصيل الخطوات -->
+          <div id="wfMapView" class="hide">
+            <div class="wf-legend">
+              <span><i class="wf-dot mine"></i> خطوة من صلاحيتك، اضغطها للانتقال لصفحتها</span>
+              <span><i class="wf-dot"></i> خطوة لقسم آخر</span>
+              <span><i class="wf-dot gate"></i> شرط لازم قبل الانتقال</span>
+            </div>
+            <div id="wfMap" class="wf-map"></div>
+          </div>
         </section>
 
         <!-- ===== صفحة: أوامر الشراء ===== -->
