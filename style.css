@@ -848,3 +848,16 @@ table.cx td.chk, table.cx th.chk { width: auto; padding-inline: 8px 4px; }
 table.cx .progress { min-width: 0; }
 table.cx b.neg { color: var(--bad); }
 table.cx .tag { white-space: nowrap; }
+
+/* ===== طي جداول تقرير الإدارة العليا ===== */
+.rp-head { cursor: pointer; user-select: none; border-radius: 12px; }
+.rp-head:hover { background: var(--panel-2); }
+.rp-head:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; }
+.rp-arrow { display: inline-grid; place-items: center; width: 22px; height: 22px; margin-inline-end: 6px; border-radius: 6px;
+  background: var(--acc-soft); color: var(--acc); font-size: 12px; vertical-align: middle; }
+.rp-arrow::before { content: '▼'; }
+.rp-sec.collapsed .rp-arrow::before { content: '◀'; }
+.rp-sec.collapsed .rp-arrow { background: var(--panel-2); color: var(--mute); }
+.rp-sec.collapsed > :not(.rp-head) { display: none; }
+.rp-sec.collapsed { padding-bottom: 0; }
+@media print { .rp-arrow, #rpCollapseAll, #rpExpandAll { display: none; } }

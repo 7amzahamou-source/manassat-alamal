@@ -13,8 +13,36 @@
       const a = e.target.closest('a[data-to]');
       if (!a) return;
       e.preventDefault();
+      setCollapsed(a.dataset.to, false);   // القسم المطوي ينفتح لما تروح له
       $(a.dataset.to).scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
+    // طي / إظهار كل جدول من السهم جنب عنوانه
+    $('rpBody').addEventListener('click', e => {
+      const h = e.target.closest('[data-tog]');
+      if (!h) return;
+      setCollapsed(h.dataset.tog, !$(h.dataset.tog).classList.contains('collapsed'));
+    });
+    $('rpBody').addEventListener('keydown', e => {
+      const h = e.target.closest('[data-tog]');
+      if (h && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); h.click(); }
+    });
+    $('rpCollapseAll').addEventListener('click', () => allSections().forEach(id => setCollapsed(id, true)));
+    $('rpExpandAll').addEventListener('click', () => allSections().forEach(id => setCollapsed(id, false)));
+  }
+
+  /* ===== طي الجداول (يُحفظ في المتصفح) ===== */
+  const FOLD_KEY = 'rp-collapsed';
+  const folded = () => { try { return JSON.parse(localStorage.getItem(FOLD_KEY) || '[]'); } catch (e) { return []; } };
+  const allSections = () => [...document.querySelectorAll('#rpBody .rp-sec')].map(s => s.id);
+  function setCollapsed(id, on) {
+    const sec = $(id);
+    if (!sec) return;
+    sec.classList.toggle('collapsed', on);
+    const btn = sec.querySelector('[data-tog]');
+    if (btn) btn.setAttribute('aria-expanded', String(!on));
+    const list = folded().filter(x => x !== id);
+    if (on) list.push(id);
+    try { localStorage.setItem(FOLD_KEY, JSON.stringify(list)); } catch (e) { /* المتصفح يمنع التخزين */ }
   }
 
   function show() {
@@ -49,8 +77,10 @@
           ${totals ? `<tfoot><tr>${totals(rows)}</tr></tfoot>` : ''}
         </table></div>`
       : '<p class="rp-empty">لا يوجد.</p>';
-    return `<section id="${id}" class="card rp-sec">
-      <div class="db-head"><b>${title} <span class="tag gray">${rows.length}</span></b><span class="sub small">${note}</span></div>
+    const off = folded().includes(id);
+    return `<section id="${id}" class="card rp-sec${off ? ' collapsed' : ''}">
+      <div class="db-head rp-head" data-tog="${id}" role="button" tabindex="0" aria-expanded="${!off}" title="اضغط للطي / الإظهار">
+        <b><span class="rp-arrow" aria-hidden="true"></span>${title} <span class="tag gray">${rows.length}</span></b><span class="sub small">${note}</span></div>
       ${body}</section>`;
   }
 
