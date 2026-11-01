@@ -2,7 +2,7 @@
  * صفحة: أوامر الشراء
  */
 (function () {
-  const FIELDS = ['poNo', 'date', 'department', 'supplier', 'currency', 'incoterm', 'payMethod', 'depositPct', 'notes'];
+  const FIELDS = ['poNo', 'date', 'department', 'supplier', 'currency', 'incoterm', 'payMethod', 'depositPct', 'contact', 'notes'];
   let orders = [];
   let editing = null;
   let items = [];

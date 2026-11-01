@@ -90,5 +90,8 @@ const API = {
   saveLc(lc)            { return this.call('saveLc',   { token: this.token(), lc }); },
   closeLc(id)           { return this.call('closeLc',  { token: this.token(), id }); },
   reopenLc(id)          { return this.call('reopenLc', { token: this.token(), id }); },
-  deleteLc(id)          { return this.call('deleteLc', { token: this.token(), id }); }
+  deleteLc(id)          { return this.call('deleteLc', { token: this.token(), id }); },
+
+  // استيراد البيانات من Excel (للمدير)
+  importData(kind, rows, extra) { return this.call('importData', { token: this.token(), kind, rows, ...(extra || {}) }); }
 };

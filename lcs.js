@@ -4,6 +4,7 @@
  */
 (function () {
   const FIELDS = ['lcNo', 'bank', 'supplier', 'currency', 'amount', 'tolerance', 'incoterm', 'payType', 'usanceDays', 'usanceFrom',
+    'insurer', 'goodsType', 'origin',
     'issueDate', 'latestShipDate', 'expiryDate', 'presentationDays', 'partial', 'notes'];
   const PRES_STATES = ['مقدمة', 'بها ملاحظات', 'مقبولة', 'مرفوضة'];
   const SHIPPED = 'تم الشحن';

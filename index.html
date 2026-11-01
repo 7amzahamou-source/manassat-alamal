@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=25">
+  <link rel="stylesheet" href="style.css?v=26">
 </head>
 <body>
 
@@ -551,6 +551,60 @@
           </div>
         </section>
 
+        <!-- ===== صفحة: استيراد البيانات من Excel (للمدير فقط) ===== -->
+        <section id="page-import" class="page hide">
+          <div class="page-head">
+            <div>
+              <h1>استيراد البيانات من Excel</h1>
+              <p class="sub">ارفع ملف «الشحنات + أوامر الشراء» وملف «الاعتمادات البنكية» (واحد أو الاثنين). تطلع لك معاينة ومشاكل قبل أي حفظ. الاستيراد ينفع تعيده: الموجود يتحدّث والجديد ينضاف.</p>
+            </div>
+          </div>
+          <div class="card im-drop">
+            <label for="imFiles" class="im-pick">
+              <b>اختر ملفات Excel (.xlsx)</b>
+              <span class="sub small">تقدر تختار الملفين مع بعض</span>
+            </label>
+            <input id="imFiles" type="file" accept=".xlsx" multiple>
+            <p id="imStatus" class="sub small"></p>
+          </div>
+
+          <div id="imOut" class="hide">
+            <div id="imStats" class="stats five"></div>
+
+            <div id="imMapWrap" class="card im-sec hide">
+              <div class="db-head"><b>ربط أرقام P/I في الاعتمادات</b><span class="sub small">أرقام ما طابقت أي أمر شراء — اختر الأمر الصحيح أو «تجاهل»</span></div>
+              <div class="table-wrap"><table class="items">
+                <thead><tr><th>رقم الاعتماد</th><th>المكتوب في الملف</th><th>أمر الشراء</th></tr></thead>
+                <tbody id="imMap"></tbody>
+              </table></div>
+            </div>
+
+            <div class="card im-sec">
+              <div class="db-head"><b>ملاحظات قبل الاستيراد</b><span class="sub small">اضغط على أي بند لعرض التفاصيل</span></div>
+              <div id="imIssues" class="im-issues"></div>
+            </div>
+
+            <div class="card im-sec">
+              <div class="db-head"><b>ربط الأقسام</b></div>
+              <div id="imDepts" class="po-chips"></div>
+            </div>
+
+            <div class="card im-sec">
+              <div class="db-head"><b>مطابقة الاعتمادات</b><span class="sub small">«المستلم» في ملفك × مجموع قيم الفواتير المربوطة بكل اعتماد</span></div>
+              <div class="table-wrap"><table class="items">
+                <thead><tr><th>رقم الاعتماد</th><th>المبلغ</th><th>المستلم حسب ملفك</th><th>حسب الفواتير</th><th>النتيجة</th></tr></thead>
+                <tbody id="imLcCmp"></tbody>
+              </table></div>
+            </div>
+
+            <div class="card im-sec im-run">
+              <label class="chk"><input id="imModels" type="checkbox" checked> أضف الموديلات الجديدة لقاعدة الموديلات</label>
+              <button type="button" id="imRunBtn" class="btn primary">استيراد</button>
+              <div id="imLog" class="im-log"></div>
+            </div>
+          </div>
+        </section>
+
         <!-- ===== صفحة: الموظفون والصلاحيات (للمدير فقط) ===== -->
         <section id="page-users" class="page hide">
           <div class="page-head">
@@ -622,6 +676,7 @@
             <select id="f_payMethod"><option>T/T</option><option>L/C</option><option>D/P</option></select>
           </div>
           <div><label for="f_depositPct">الدفعة المقدمة %</label><input id="f_depositPct" type="number" min="0" max="100" step="any" placeholder="30"></div>
+          <div><label for="f_contact">جهة الاتصال لدى المورد</label><input id="f_contact"></div>
           <div class="wide"><label for="f_notes">ملاحظات</label><input id="f_notes"></div>
           <div class="wide" style="grid-column:1/-1">
             <label for="f_portIn">موانئ الشحن * <span class="sub small" style="font-weight:400">— أضف ميناء أو أكثر</span></label>
@@ -1029,6 +1084,10 @@
             <label for="lc_partial">الشحن الجزئي</label>
             <select id="lc_partial"><option>مسموح</option><option>غير مسموح</option></select>
           </div>
+          <div><label for="lc_insurer">شركة التأمين (Cover Note)</label><input id="lc_insurer" list="insurersList" autocomplete="off"></div>
+          <div><label for="lc_origin">المنشأ</label><input id="lc_origin" placeholder="CHINA"></div>
+          <div class="wide"><label for="lc_goodsType">نوع البضاعة</label><input id="lc_goodsType" placeholder="AIR CONDITIONERS"></div>
+          <datalist id="insurersList"><option>ولاء</option><option>الوطنية</option><option>CIF (على المورد)</option></datalist>
           <div class="wide"><label for="lc_notes">ملاحظات</label><input id="lc_notes"></div>
         </div>
 
@@ -1113,9 +1172,11 @@
 
         <h3 class="fh">البيانات البحرية</h3>
         <div class="grid">
-          <div><label for="fd_billOfLading">رقم البوليصة (B/L)</label><input id="fd_billOfLading" dir="ltr"></div>
+          <div><label for="fd_billOfLading">رقم البوليصة الرئيسية (MBL)</label><input id="fd_billOfLading" dir="ltr"></div>
           <div><label for="fd_shippingLine">الخط الملاحي</label><input id="fd_shippingLine" list="linesList" autocomplete="off"></div>
           <div><label for="fd_vessel">الباخرة / الرحلة</label><input id="fd_vessel" dir="ltr"></div>
+          <div><label for="fd_hblNo">رقم HBL</label><input id="fd_hblNo" dir="ltr"></div>
+          <div><label for="fd_insurer">شركة التأمين</label><input id="fd_insurer" list="insurersList" autocomplete="off"></div>
           <div><label for="fd_actualArrival">الوصول الفعلي</label><input id="fd_actualArrival" type="date"></div>
         </div>
 
@@ -1203,18 +1264,19 @@
   <div id="toast" class="toast" role="status"></div>
 
   <script src="config.js"></script>
-  <script src="api.js?v=25"></script>
-  <script src="app.js?v=25"></script>
-  <script src="dashboard.js?v=25"></script>
-  <script src="report.js?v=25"></script>
-  <script src="orders.js?v=25"></script>
-  <script src="models.js?v=25"></script>
-  <script src="shipping.js?v=25"></script>
-  <script src="containers.js?v=25"></script>
-  <script src="files.js?v=25"></script>
-  <script src="rates.js?v=25"></script>
-  <script src="lcs.js?v=25"></script>
-  <script src="workflow.js?v=25"></script>
-  <script src="users.js?v=25"></script>
+  <script src="api.js?v=26"></script>
+  <script src="app.js?v=26"></script>
+  <script src="dashboard.js?v=26"></script>
+  <script src="report.js?v=26"></script>
+  <script src="orders.js?v=26"></script>
+  <script src="models.js?v=26"></script>
+  <script src="shipping.js?v=26"></script>
+  <script src="containers.js?v=26"></script>
+  <script src="files.js?v=26"></script>
+  <script src="rates.js?v=26"></script>
+  <script src="lcs.js?v=26"></script>
+  <script src="workflow.js?v=26"></script>
+  <script src="users.js?v=26"></script>
+  <script src="import.js?v=26"></script>
 </body>
 </html>

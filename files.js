@@ -11,7 +11,7 @@
     ['freight', 'الشحن البحري'], ['duty', 'الرسوم الجمركية'], ['port', 'رسوم الميناء'], ['clearance', 'أتعاب التخليص'],
     ['transport', 'النقل الداخلي'], ['storage', 'أرضيات / تأخير'], ['saber', 'سابر / فحص'], ['other', 'مصاريف أخرى']
   ];
-  const FIELDS = ['billOfLading', 'shippingLine', 'vessel', 'actualArrival',
+  const FIELDS = ['billOfLading', 'hblNo', 'insurer', 'shippingLine', 'vessel', 'actualArrival',
     'exchangeRate', 'vat', 'claimAmount', 'claimStatus', 'claimNotes', 'notes'];
   const RATES = { SAR: 1, USD: 3.75, EUR: 4.1, CNY: 0.52, AED: 1.02 };   // قيم مقترحة فقط، تُعدّل في الملف
 

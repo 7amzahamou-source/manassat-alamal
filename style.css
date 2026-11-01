@@ -793,3 +793,19 @@ table.sh-table .clip { white-space: normal; unicode-bidi: plaintext; text-align:
 @media (max-width: 720px) { .lc-row { grid-template-columns: 1fr 1fr; } }
 .lc-row + .lc-row { grid-template-columns: repeat(3, 1fr); }
 @media (max-width: 720px) { .lc-row + .lc-row { grid-template-columns: 1fr 1fr; } }
+
+/* ===== استيراد البيانات ===== */
+.im-drop { padding: 18px; display: flex; flex-direction: column; gap: 8px; }
+.im-pick { display: flex; flex-direction: column; gap: 2px; margin: 0; }
+.im-sec { padding: 16px 18px; margin-top: 16px; }
+.im-issues details { border-bottom: 1px solid var(--line); padding: 8px 0; }
+.im-issues summary { cursor: pointer; display: flex; align-items: center; gap: 8px; }
+.im-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; max-height: 220px; overflow: auto; }
+.im-list span { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 2px 8px; font-size: 12.5px; }
+.im-run { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; }
+.im-run .chk { display: inline-flex; align-items: center; gap: 6px; margin: 0; }
+.im-log { width: 100%; font-size: 13.5px; line-height: 1.8; }
+.im-log .ok { color: var(--ok); }
+#imMap select { min-width: 220px; }
+.im-hint { display: block; margin-top: 3px; }
+#imMap td { vertical-align: middle; }
