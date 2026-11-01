@@ -747,3 +747,29 @@ table.items.ns-table .q-cell .btn { flex: none; padding-inline: 10px; }
 @media (max-width: 720px) {
   table.items.ns-table { table-layout: auto; }
 }
+
+/* ===== جداول طلبات الشحن والبضاعة المشحونة (مختصرة وواضحة) ===== */
+table.sh-table { table-layout: fixed; width: 100%; min-width: 860px; }
+table.sh-table td { vertical-align: middle; overflow-wrap: anywhere; }
+table.sh-table td > b { display: block; font-size: 14px; }
+table.sh-table td small { display: block; color: var(--mute); font-size: 12px; margin-top: 3px; }
+table.sh-table td small b { color: var(--ink); font-weight: 500; }
+table.sh-table .code { font-size: 13px; letter-spacing: -.2px; }
+table.sh-table .clip { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+table.sh-table th:nth-child(1) { width: 20%; }
+table.sh-table th:nth-child(2) { width: 18%; }
+table.sh-table th:nth-child(3) { width: 24%; }
+table.sh-table th:nth-child(4) { width: 11%; }
+table.sh-table th:nth-child(5) { width: 12%; }
+table.sh-table:not(.sp) th:nth-child(6) { width: 15%; }
+table.sh-table.sp th:nth-child(1) { width: 12%; }
+table.sh-table.sp th:nth-child(3) { width: 22%; }
+table.sh-table.sp th:nth-child(5) { width: 14%; }
+table.sh-table.sp th:nth-child(6) { width: 13%; }
+.mchips { display: flex; flex-wrap: wrap; gap: 4px; }
+.mchip { background: var(--panel-2); border: 1px solid var(--line); border-radius: 8px; padding: 2px 7px; font-size: 12px; font-weight: 500; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mchip i { font-style: normal; color: var(--mute); font-weight: 400; }
+.mchip.more { background: var(--acc-soft); color: var(--acc); border-color: transparent; }
+table.sh-table .tags { display: flex; flex-wrap: wrap; gap: 4px; }
+table.sh-table .tags .tag { font-size: 11.5px; padding: 1px 8px; }
+table.sh-table .clip { white-space: normal; unicode-bidi: plaintext; text-align: right; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }

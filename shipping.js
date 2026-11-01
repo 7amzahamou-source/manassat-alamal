@@ -19,6 +19,14 @@
   };
   const inspTag = v => `<span class="tag ${v === 'مجتاز' ? 'ok' : v === 'معفى' ? 'gray' : v === 'مرفوض' ? 'bad' : 'wait'}">${esc(v || 'لم يُفحص')}</span>`;
   const modelsOf = s => (s.lines || []).map(l => l.model).join('، ');
+  /** الموديلات كشارات: أول اثنين + عدد الباقي */
+  const modelChips = s => {
+    const ls = s.lines || [];
+    const title = ls.map(l => `${l.model}: ${num(l.qty)}`).join('\n');
+    return `<div class="mchips" title="${esc(title)}">` + ls.slice(0, 2).map(l =>
+      `<span class="mchip" dir="ltr">${esc(l.model)} <i>${num(l.qty)}</i></span>`).join('') +
+      (ls.length > 2 ? `<span class="mchip more">+${ls.length - 2}</span>` : '') + '</div>';
+  };
 
   registerPage({ key: 'shipments', title: 'طلبات الشحن', icon: ICONS.shipments, levels: ['none', 'view', 'edit', 'full'], init, show: showPending });
   registerPage({ key: 'shipped', title: 'البضاعة المشحونة', icon: ICONS.shipped, levels: ['none', 'view', 'edit', 'full'], show: showShipped });
@@ -84,12 +92,12 @@
   async function loadPending() {
     pending = [];
     $('shStats').innerHTML = '';
-    $('shBody').innerHTML = '<tr><td colspan="11" class="empty">جارٍ التحميل…</td></tr>';
+    $('shBody').innerHTML = '<tr><td colspan="7" class="empty">جارٍ التحميل…</td></tr>';
     try {
       pending = (await API.listShipments('pending')).shipments || [];
       renderPending();
     } catch (err) {
-      $('shBody').innerHTML = `<tr><td colspan="11" class="empty">${esc(err.message)}</td></tr>`;
+      $('shBody').innerHTML = `<tr><td colspan="7" class="empty">${esc(err.message)}</td></tr>`;
     }
   }
 
@@ -110,22 +118,17 @@
     if (!list.length) {
       const msg = pending.length ? 'لا توجد طلبات مطابقة.'
         : can('shipments', 'edit') ? 'لا توجد طلبات شحن. اضغط «طلب شحن جديد» واختر أمر شراء معتمد.' : 'لا توجد طلبات شحن.';
-      $('shBody').innerHTML = `<tr><td colspan="11" class="empty">${msg}</td></tr>`;
+      $('shBody').innerHTML = `<tr><td colspan="7" class="empty">${msg}</td></tr>`;
       return;
     }
     $('shBody').innerHTML = list.map(s => `
       <tr data-id="${esc(s.id)}">
-        <td><b dir="ltr">${esc(s.requestCode)}</b></td>
-        <td>${esc(s.poNo)}</td>
-        <td>${esc(s.supplier)}</td>
-        <td dir="ltr" style="text-align:right">${esc(s.invoiceNo)}</td>
-        <td>${esc(s.port)}</td>
-        <td class="models">${esc(modelsOf(s))}</td>
-        <td class="num">${num(s.totalQty)}</td>
-        <td class="num">${num(s.totalContainers) || '—'}</td>
-        <td>${esc(s.readyDate)}</td>
-        <td>${inspTag(s.inspection)}</td>
-        <td>${stateTag(s.state)}${s.payMethod === 'L/C' && !s.lcId ? ' <span class="tag bad" title="أمر الشراء طريقة دفعه L/C ولم يُربط باعتماد">بدون L/C</span>' : ''}</td>
+        <td><b class="code" dir="ltr">${esc(s.requestCode)}</b><small>فاتورة <span dir="ltr">${esc(s.invoiceNo)}</span></small></td>
+        <td><b dir="ltr">${esc(s.poNo)}</b><small class="clip" title="${esc(s.supplier)}">${esc(s.supplier)}</small></td>
+        <td>${modelChips(s)}</td>
+        <td><b class="num">${num(s.totalQty)}</b><small>${num(s.totalContainers) ? num(s.totalContainers) + ' حاوية' : 'بدون حاويات'}</small></td>
+        <td><b dir="ltr">${esc(s.port)}</b><small>جاهزة ${esc(s.readyDate)}</small></td>
+        <td><div class="tags">${stateTag(s.state)}${inspTag(s.inspection)}${s.lcNo ? `<span class="tag gray" dir="ltr">${esc(s.lcNo)}</span>` : ''}${s.payMethod === 'L/C' && !s.lcId ? '<span class="tag bad" title="أمر الشراء طريقة دفعه L/C ولم يُربط باعتماد">بدون L/C</span>' : ''}</div></td>
       </tr>`).join('');
   }
 
@@ -138,12 +141,12 @@
   async function loadShipped() {
     shipped = [];
     $('spStats').innerHTML = '';
-    $('spBody').innerHTML = '<tr><td colspan="11" class="empty">جارٍ التحميل…</td></tr>';
+    $('spBody').innerHTML = '<tr><td colspan="7" class="empty">جارٍ التحميل…</td></tr>';
     try {
       shipped = (await API.listShipments('shipped')).shipments || [];
       renderShipped();
     } catch (err) {
-      $('spBody').innerHTML = `<tr><td colspan="11" class="empty">${esc(err.message)}</td></tr>`;
+      $('spBody').innerHTML = `<tr><td colspan="7" class="empty">${esc(err.message)}</td></tr>`;
     }
   }
 
@@ -163,23 +166,22 @@
     ].map(([l, v]) => `<div class="stat"><small>${l}</small><b>${v}</b></div>`).join('');
 
     if (!list.length) {
-      $('spBody').innerHTML = `<tr><td colspan="11" class="empty">${shipped.length ? 'لا توجد شحنات مطابقة.' : 'لا توجد شحنات معمّدة بعد. تظهر هنا بعد «تعميد الشحن» من طلبات الشحن.'}</td></tr>`;
+      $('spBody').innerHTML = `<tr><td colspan="7" class="empty">${shipped.length ? 'لا توجد شحنات مطابقة.' : 'لا توجد شحنات معمّدة بعد. تظهر هنا بعد «تعميد الشحن» من طلبات الشحن.'}</td></tr>`;
       return;
     }
-    $('spBody').innerHTML = list.map(s => `
+    $('spBody').innerHTML = list.map(s => {
+      const arriving = s.eta && s.eta >= t;
+      return `
       <tr data-id="${esc(s.id)}">
-        <td><b class="serial">${esc(s.serial)}</b></td>
-        <td dir="ltr" style="text-align:right">${esc(s.invoiceNo)}</td>
-        <td>${esc(s.poNo)}</td>
-        <td class="models">${esc(modelsOf(s))}</td>
-        <td class="num">${num(s.totalQty)}</td>
-        <td class="num">${num(s.containerRows || s.totalContainers) || '—'} <span class="sub">(${num(s.receivedContainers)})</span></td>
-        <td>${esc(s.shipDate || '—')}</td>
-        <td>${esc(s.eta || '—')}</td>
-        <td>${esc(s.port)} ← ${esc(s.arrivalPort || '—')}</td>
-        <td>${esc(s.forwarder || '—')}</td>
-        <td>${esc(s.broker || '—')}</td>
-      </tr>`).join('');
+        <td><b class="serial">${esc(s.serial)}</b><small>فاتورة <span dir="ltr">${esc(s.invoiceNo)}</span></small></td>
+        <td><b dir="ltr">${esc(s.poNo)}</b><small class="clip" title="${esc(s.supplier)}">${esc(s.supplier)}</small></td>
+        <td>${modelChips(s)}</td>
+        <td><b class="num">${num(s.totalQty)}</b><small>${num(s.containerRows || s.totalContainers) || '—'} حاوية · مستلمة ${num(s.receivedContainers)}</small></td>
+        <td><b>${esc(s.port)} ← ${esc(s.arrivalPort || '—')}</b>${s.lcNo ? `<small>L/C <span dir="ltr">${esc(s.lcNo)}</span></small>` : ''}</td>
+        <td><small>شحن <b>${esc(s.shipDate || '—')}</b></small><small>وصول <b>${esc(s.eta || '—')}</b>${arriving ? '' : s.eta ? ' <span class="tag gray">وصلت</span>' : ''}</small></td>
+        <td><b>${esc(s.forwarder || '—')}</b><small>${esc(s.broker || '—')}</small></td>
+      </tr>`;
+    }).join('');
   }
 
   /* ===== طلب شحن جديد ===== */
