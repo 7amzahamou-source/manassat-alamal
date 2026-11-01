@@ -1,6 +1,6 @@
 /* =====================================================================
-   منصة الأساسية — الهوية البصرية
-   الألوان مأخوذة من شعار الأساسية: كحلي للأساس، والأحمر لمسة خفيفة فقط
+   منصة سلاسل الإمداد — الهوية البصرية
+   كحلي للأساس، والأحمر لمسة خفيفة فقط
    ===================================================================== */
 :root {
   --navy: #2e2a72;          /* كحلي الشعار */
@@ -861,3 +861,32 @@ table.cx .tag { white-space: nowrap; }
 .rp-sec.collapsed > :not(.rp-head) { display: none; }
 .rp-sec.collapsed { padding-bottom: 0; }
 @media print { .rp-arrow, #rpCollapseAll, #rpExpandAll { display: none; } }
+
+/* شاشة الدخول بدون العلامات التجارية: المحتوى في المنتصف */
+.auth-brand { justify-content: center; }
+
+/* ===== علامة المنصة (بدل شعار الشركة) ===== */
+.brandmark { display: flex; align-items: center; gap: 10px; color: var(--ink); }
+.brandmark .bm-ico { width: 40px; height: 40px; flex: none; color: var(--navy, #2e2a72); }
+.brandmark span { display: flex; flex-direction: column; line-height: 1.25; }
+.brandmark b { font-size: 17px; font-weight: 700; }
+.brandmark small { font-size: 12px; color: var(--mute); }
+.bm-rail { padding: 6px 4px 14px; color: #fff; }
+.bm-rail .bm-ico { color: #3b3896; }
+.bm-rail small { color: var(--rail-mute, #8e8cc4); }
+.bm-auth { align-self: flex-start; color: #fff; }
+.bm-auth .bm-ico { width: 54px; height: 54px; color: #3b3896; }
+.bm-auth b { font-size: 21px; }
+.bm-auth small { color: #b9b7e6; }
+.bm-load { flex-direction: column; text-align: center; }
+.bm-load .bm-ico { width: 64px; height: 64px; }
+.auth-form .brandmark.m-logo { display: none; margin-bottom: 26px; }
+.brandmark.top-logo { display: none; }
+.brandmark.top-logo .bm-ico { width: 30px; height: 30px; }
+.brandmark.top-logo b { font-size: 15px; }
+body.single-page .brandmark.top-logo { display: flex; }
+@media (max-width: 960px) {
+  .auth-form .brandmark.m-logo { display: flex; }
+  .brandmark.top-logo { display: flex; }
+}
+@media (max-width: 960px) { .auth-brand .bm-auth { display: none; } }
