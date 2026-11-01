@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=23">
+  <link rel="stylesheet" href="style.css?v=25">
 </head>
 <body>
 
@@ -283,7 +283,7 @@
                 <thead>
                   <tr>
                     <th>رقم الأمر</th><th>التاريخ</th><th>القسم</th><th>المورد</th>
-                    <th>البنود</th><th>الكمية</th><th>الحاويات</th><th>القيمة</th><th>الشحن</th><th>الحالة</th>
+                    <th>البنود</th><th>الكمية</th><th>الحاويات</th><th>الشحن</th><th>الحالة</th>
                   </tr>
                 </thead>
                 <tbody id="ordersBody"></tbody>
@@ -639,7 +639,7 @@
         <div class="table-wrap">
           <table class="items">
             <thead>
-              <tr><th>الموديل *</th><th>الوصف</th><th>الكمية *</th><th>سعر الوحدة</th><th>الحاويات</th><th>القيمة</th><th></th></tr>
+              <tr><th>الموديل *</th><th>الوصف</th><th>الكمية *</th><th>الحاويات</th><th></th></tr>
             </thead>
             <tbody id="itemsBody"></tbody>
           </table>
@@ -651,7 +651,6 @@
         <div class="totals">
           <div><span>إجمالي الكمية</span><b id="totQty">0</b></div>
           <div><span>إجمالي الحاويات</span><b id="totCnt">0</b></div>
-          <div class="grand"><span>قيمة الأمر</span><b id="totVal">0</b></div>
         </div>
         <div id="odLcs" class="hide"></div>
         <p id="dlgMeta" class="meta"></p>
@@ -816,6 +815,7 @@
             <select id="ns_po" required></select>
           </div>
           <div><label for="ns_invoice">رقم الفاتورة *</label><input id="ns_invoice" required dir="ltr"></div>
+          <div><label for="ns_invoiceValue">قيمة الفاتورة الإجمالية <span id="nsCur" class="sub small"></span></label><input id="ns_invoiceValue" type="number" min="0" step="0.01" placeholder="تنخصم من الاعتماد البنكي"></div>
           <div><label for="ns_port">ميناء التحميل *</label><input id="ns_port" list="nsPortsList" required dir="ltr" placeholder="NINGBO" autocomplete="off"></div>
           <datalist id="nsPortsList"></datalist>
           <div><label for="ns_ready">تاريخ جاهزية البضاعة *</label><input id="ns_ready" type="date" required></div>
@@ -865,7 +865,6 @@
           <span><small>موديلات</small><b id="nsModels">0</b></span>
           <span><small>الكمية</small><b id="nsQty">0</b></span>
           <span><small>الحاويات</small><b id="nsCnt">0</b></span>
-          <span><small>القيمة</small><b id="nsVal">—</b></span>
         </div>
         <div id="nsError" class="error"></div>
         <button type="submit" id="nsSaveBtn" class="btn primary">إرسال طلب الشحن</button>
@@ -893,6 +892,7 @@
         <h3 class="section-title">بيانات الشحن</h3>
         <div class="grid">
           <div><label for="sd_invoiceNo">رقم الفاتورة *</label><input id="sd_invoiceNo" dir="ltr"></div>
+          <div><label for="sd_invoiceValue">قيمة الفاتورة الإجمالية</label><input id="sd_invoiceValue" type="number" min="0" step="0.01"></div>
           <div><label for="sd_approvalNo">رقم اعتماد الشحن</label><input id="sd_approvalNo" dir="ltr"></div>
           <div id="sdReadyWrap"><label for="sd_readyDate">تاريخ الجاهزية</label><input id="sd_readyDate" type="date"></div>
           <div><label for="sd_forwarder">الوسيط / شركة الشحن</label><input id="sd_forwarder"></div>
@@ -1015,7 +1015,12 @@
             <label for="lc_payType">نوع الدفع</label>
             <select id="lc_payType"><option>اطلاع</option><option>آجل</option></select>
           </div>
-          <div id="lcUsanceWrap"><label for="lc_usanceDays">أيام الآجل (من تاريخ الشحن)</label><input id="lc_usanceDays" type="number" min="0" step="1" placeholder="90"></div>
+          <div id="lcUsanceWrap"><label for="lc_usanceDays">أيام الآجل</label><input id="lc_usanceDays" type="number" min="0" step="1" list="usanceList" placeholder="30 / 60 / 90">
+            <datalist id="usanceList"><option value="30"><option value="60"><option value="90"><option value="120"><option value="180"></datalist></div>
+          <div id="lcUsanceFromWrap">
+            <label for="lc_usanceFrom">الآجل يُحسب من</label>
+            <select id="lc_usanceFrom"><option value="الشحن">تاريخ الشحن (البوليصة B/L)</option><option value="القبول">تاريخ قبول المستندات</option><option value="التقديم">تاريخ تقديم المستندات</option></select>
+          </div>
           <div><label for="lc_issueDate">تاريخ الفتح *</label><input id="lc_issueDate" type="date" required></div>
           <div><label for="lc_latestShipDate">آخر موعد للشحن *</label><input id="lc_latestShipDate" type="date" required></div>
           <div><label for="lc_expiryDate">تاريخ انتهاء الصلاحية *</label><input id="lc_expiryDate" type="date" required></div>
@@ -1033,12 +1038,14 @@
         </div>
         <div class="table-wrap">
           <table class="items">
-            <thead><tr><th>أمر الشراء</th><th>المورد</th><th>قيمة الأمر</th><th>مغطى باعتمادات أخرى</th><th>المبلغ المخصص من هذا الاعتماد</th><th></th></tr></thead>
+            <thead><tr><th>أمر الشراء</th><th>المورد</th><th>كمية الأمر</th><th>اعتمادات أخرى على الأمر</th><th></th></tr></thead>
             <tbody id="lcPos"></tbody>
           </table>
         </div>
 
-        <div id="lcSummary" class="totals"></div>
+        <h3 class="fh">الرصيد والاستحقاقات</h3>
+        <div id="lcSummary" class="lc-sum"></div>
+        <div id="lcSchedule"></div>
 
         <div class="items-head">
           <h3>التعديلات (Amendments)</h3>
@@ -1052,7 +1059,7 @@
         </div>
 
         <h3 class="fh">الشحنات المربوطة وتقديم المستندات للبنك</h3>
-        <p class="sub small">تُربط الشحنة بالاعتماد من نافذة «بيانات الشحن». بعد تعميد الشحن سجّل هنا تقديم المستندات، الملاحظات (Discrepancies)، القبول، والسداد.</p>
+        <p class="sub small">تُربط الشحنة بالاعتماد من نافذة «بيانات الشحن». بعد تعميد الشحن سجّل هنا تقديم المستندات، الملاحظات (Discrepancies) والقبول — والسداد يمشي تلقائيًا بتاريخ الاستحقاق.</p>
         <div class="table-wrap">
           <table class="items">
             <thead><tr><th>الشحنة</th><th>الفاتورة</th><th>أمر الشراء</th><th>تاريخ الشحن</th><th>القيمة</th><th>الحالة</th><th></th></tr></thead>
@@ -1061,7 +1068,7 @@
         </div>
         <div class="table-wrap" style="margin-top:12px">
           <table class="items lc-pres">
-            <thead><tr><th>الشحنة</th><th>تاريخ التقديم</th><th>المبلغ</th><th>الملاحظات</th><th>الحالة</th><th>تاريخ القبول</th><th>الاستحقاق</th><th>تاريخ السداد</th><th>المسدد</th><th></th></tr></thead>
+            <thead><tr><th>الشحنة</th><th>تاريخ التقديم</th><th>المبلغ</th><th>الملاحظات</th><th>الحالة</th><th>تاريخ القبول</th><th>الاستحقاق (السداد)</th><th>الحالة بالتاريخ</th><th></th></tr></thead>
             <tbody id="lcPres"></tbody>
           </table>
         </div>
@@ -1076,7 +1083,7 @@
             <tbody id="lcChgs"></tbody>
           </table>
         </div>
-        <p id="lcHint" class="note hide">لإقفال الاعتماد لازم كل المستندات المقدمة تكون مسددة أو مرفوضة.</p>
+        <p id="lcHint" class="note hide">السداد يمشي بالتاريخ: أي فاتورة مقبولة حلّ تاريخ استحقاقها تُعتبر مسددة تلقائيًا. لإقفال الاعتماد لازم كل المستندات المقدمة مسددة (حلّ تاريخها) أو مرفوضة.</p>
         <p id="lcMeta" class="meta"></p>
       </div>
       <div class="dlg-foot">
@@ -1127,7 +1134,7 @@
 
         <h3 class="fh">التكاليف والتكلفة الواصلة (ريال)</h3>
         <div class="grid">
-          <div><label>قيمة البضاعة</label><input id="fdGoodsOrig" disabled dir="ltr"></div>
+          <div><label>قيمة الفواتير (من طلبات الشحن)</label><input id="fdGoodsOrig" disabled dir="ltr"></div>
           <div><label for="fd_exchangeRate">سعر الصرف إلى الريال</label><input id="fd_exchangeRate" type="number" min="0" step="any"></div>
           <div><label>قيمة البضاعة (ريال)</label><input id="fdGoodsSar" disabled dir="ltr"></div>
           <div></div>
@@ -1150,7 +1157,7 @@
 
         <div class="table-wrap" style="margin-top:14px">
           <table class="items">
-            <thead><tr><th>الموديل</th><th>أمر الشراء</th><th>الكمية</th><th>سعر الوحدة</th><th>القيمة (ريال)</th><th>نصيبه من المصاريف</th><th>تكلفة الوحدة الواصلة</th></tr></thead>
+            <thead><tr><th>الموديل</th><th>أمر الشراء</th><th>الكمية</th><th>نصيبه من قيمة الفاتورة (ريال)</th><th>نصيبه من المصاريف</th><th>تكلفة الوحدة الواصلة</th></tr></thead>
             <tbody id="fdUnits"></tbody>
           </table>
         </div>
@@ -1196,18 +1203,18 @@
   <div id="toast" class="toast" role="status"></div>
 
   <script src="config.js"></script>
-  <script src="api.js?v=23"></script>
-  <script src="app.js?v=23"></script>
-  <script src="dashboard.js?v=23"></script>
-  <script src="report.js?v=23"></script>
-  <script src="orders.js?v=23"></script>
-  <script src="models.js?v=23"></script>
-  <script src="shipping.js?v=23"></script>
-  <script src="containers.js?v=23"></script>
-  <script src="files.js?v=23"></script>
-  <script src="rates.js?v=23"></script>
-  <script src="lcs.js?v=23"></script>
-  <script src="workflow.js?v=23"></script>
-  <script src="users.js?v=23"></script>
+  <script src="api.js?v=25"></script>
+  <script src="app.js?v=25"></script>
+  <script src="dashboard.js?v=25"></script>
+  <script src="report.js?v=25"></script>
+  <script src="orders.js?v=25"></script>
+  <script src="models.js?v=25"></script>
+  <script src="shipping.js?v=25"></script>
+  <script src="containers.js?v=25"></script>
+  <script src="files.js?v=25"></script>
+  <script src="rates.js?v=25"></script>
+  <script src="lcs.js?v=25"></script>
+  <script src="workflow.js?v=25"></script>
+  <script src="users.js?v=25"></script>
 </body>
 </html>

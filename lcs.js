@@ -3,7 +3,7 @@
  * الاعتماد يغطي أمر شراء أو أكثر، والأمر ممكن يكون له أكثر من اعتماد.
  */
 (function () {
-  const FIELDS = ['lcNo', 'bank', 'supplier', 'currency', 'amount', 'tolerance', 'incoterm', 'payType', 'usanceDays',
+  const FIELDS = ['lcNo', 'bank', 'supplier', 'currency', 'amount', 'tolerance', 'incoterm', 'payType', 'usanceDays', 'usanceFrom',
     'issueDate', 'latestShipDate', 'expiryDate', 'presentationDays', 'partial', 'notes'];
   const PRES_STATES = ['مقدمة', 'بها ملاحظات', 'مقبولة', 'مرفوضة'];
   const SHIPPED = 'تم الشحن';
@@ -21,11 +21,23 @@
     return `<span class="tag ${cls}">${esc(s)}</span>`;
   };
   const presTag = p => {
-    if (p.paidDate) return '<span class="tag ok">مسددة</span>';
-    if (p.overdue) return '<span class="tag bad">مستحقة ومتأخرة</span>';
+    const d = dueOf(p);
+    if (p.status === 'مقبولة' && d && d <= today()) return '<span class="tag ok">مسددة</span>';
+    if (p.status === 'مقبولة' && d) return `<span class="tag wait">آجل · باقي ${daysBetween(today(), d)} يوم</span>`;
     const cls = { 'مقدمة': 'wait', 'بها ملاحظات': 'bad', 'مقبولة': '', 'مرفوضة': 'gray' }[p.status] ?? '';
     return `<span class="tag ${cls}">${esc(p.status)}</span>`;
   };
+  /** تاريخ الاستحقاق: المسجّل، أو المحسوب (اطلاع = القبول، آجل = البداية حسب شرط الاعتماد + الأيام) */
+  function dueOf(p) {
+    if (p.dueDate) return p.dueDate;
+    if (p.status !== 'مقبولة') return '';
+    const acc = p.acceptedDate || p.presentedDate || '';
+    if ($('lc_payType').value !== 'آجل') return acc;
+    const sh = ((current && current.shipments) || []).find(x => x.id === p.shipmentId) || {};
+    const from = $('lc_usanceFrom').value;
+    const base = from === 'القبول' ? acc : from === 'التقديم' ? (p.presentedDate || '') : (sh.shipDate || p.presentedDate || '');
+    return base ? addDays(base, n($('lc_usanceDays').value)) : '';
+  }
   const daysTag = (d, days) => {
     if (!d) return '—';
     const cls = days < 0 ? 'bad' : days <= 15 ? 'wait' : '';
@@ -44,7 +56,7 @@
     });
 
     $('lc_payType').addEventListener('change', usanceToggle);
-    $('lcAddPoBtn').addEventListener('click', () => { pos.push({ poId: '', amount: '' }); drawPos(); });
+    $('lcAddPoBtn').addEventListener('click', () => { pos.push({ poId: '' }); drawPos(); });
     $('lcAddAmdBtn').addEventListener('click', () => { amds.push({ date: today() }); drawAmds(); });
     $('lcAddChgBtn').addEventListener('click', () => { chgs.push({ date: today(), currency: 'SAR' }); drawChgs(); });
 
@@ -55,6 +67,7 @@
       const { arr, i, f } = e.target.dataset;
       if (arr) arrays[arr]()[i][f] = e.target.value;
       if (arr === 'pos' && f === 'poId') { pickPo(Number(i)); drawPos(); }
+      if (arr === 'pres' && f === 'status') drawPres();
       summary();
     });
     $('lcForm').addEventListener('click', e => {
@@ -109,7 +122,7 @@
       ['الرصيد المتاح', Object.keys(avail).map(c => money(avail[c], c)).join('<br>') || '—'],
       ['تنتهي خلال 30 يوم', active.filter(l => l.state !== 'منتهي' && l.daysToExpiry != null && l.daysToExpiry <= 30).length],
       ['مستندات عليها ملاحظات', allPres.filter(p => p.status === 'بها ملاحظات').length],
-      ['دفعات غير مسددة', allPres.filter(p => p.status === 'مقبولة' && !p.paidDate).length]
+      ['على الآجل (لم يحلّ تاريخه)', money(active.reduce((t, l) => t + (l.notDue || 0), 0))]
     ].map(([l, v]) => `<div class="stat"><small>${l}</small><b>${v}</b></div>`).join('');
 
     if (!list.length) {
@@ -127,7 +140,7 @@
         <td><b dir="ltr">${esc(l.incoterm || '—')}</b></td>
         <td>${esc(l.payType)}${l.payType === 'آجل' ? ' ' + num(l.usanceDays) + ' يوم' : ''}</td>
         <td class="num">${money(l.effAmount, l.currency)}</td>
-        <td class="num">${money(l.used)}</td>
+        <td class="num">${money(l.used)}${l.notDue ? `<small class="sub" style="display:block">مسدد ${money(l.paid)} · آجل ${money(l.notDue)}</small>` : ''}</td>
         <td class="num"><b>${money(l.available)}</b></td>
         <td>${l.state === 'مقفل' ? esc(l.effLatestShip) : daysTag(l.effLatestShip, l.available > 0 ? l.daysToLatestShip : null)}</td>
         <td>${l.state === 'مقفل' ? esc(l.effExpiry) : daysTag(l.effExpiry, l.daysToExpiry)}</td>
@@ -150,8 +163,8 @@
     if (!o.tolerance) $('lc_tolerance').value = '';
     usanceToggle();
 
-    pos = (o.pos || []).map(p => ({ ...p }));
-    if (!pos.length) pos.push({ poId: '', amount: '' });
+    pos = (o.pos || []).map(p => ({ poId: p.poId, poNo: p.poNo }));
+    if (!pos.length) pos.push({ poId: '' });
     amds = (o.amendments || []).map(a => ({ ...a }));
     pres = (o.presentations || []).map(p => ({ ...p }));
     chgs = (o.charges || []).map(c => ({ ...c }));
@@ -172,6 +185,8 @@
 
   function usanceToggle() {
     $('lcUsanceWrap').classList.toggle('hide', $('lc_payType').value !== 'آجل');
+    $('lcUsanceFromWrap').classList.toggle('hide', $('lc_payType').value !== 'آجل');
+    if (!$('lc_usanceFrom').value) $('lc_usanceFrom').value = 'الشحن';
   }
 
   const dis = () => editable ? '' : 'disabled';
@@ -179,16 +194,12 @@
   const inp = (arr, i, f, v, type = 'text', extra = '') =>
     `<input data-arr="${arr}" data-i="${i}" data-f="${f}" type="${type}" value="${esc(v ?? '')}" ${type === 'number' ? 'step="any"' : ''} ${extra} ${dis()}>`;
 
-  /** المغطى من الأمر باعتمادات أخرى (غير هذا الاعتماد) */
-  function otherCover(po) {
-    const mine = current ? ((current.pos || []).find(p => p.poId === po.id) || {}).amount || 0 : 0;
-    return r2(po.covered - mine);
-  }
+  /** اعتمادات أخرى على نفس الأمر (غير هذا الاعتماد) */
+  const otherLcs = po => (po.otherLcs || []).filter(no => !current || no !== current.lcNo);
 
   function pickPo(i) {
     const po = poOptions.find(o => o.id === pos[i].poId);
     if (!po) return;
-    if (!pos[i].amount) pos[i].amount = Math.max(0, r2(po.totalValue - otherCover(po)));
     if (!$('lc_supplier').value) $('lc_supplier').value = po.supplier;
     if (pos.filter(p => p.poId).length === 1) $('lc_currency').value = po.currency;
     // شرط التسليم ينسحب من أمر الشراء تلقائيًا (يتعدّل يدويًا لو لزم)
@@ -207,12 +218,11 @@
       return `<tr>
         <td>${select}</td>
         <td>${esc(po ? po.supplier : '—')}</td>
-        <td class="num">${po ? money(po.totalValue, po.currency) : '—'}</td>
-        <td class="num">${po ? money(otherCover(po)) : '—'}</td>
-        <td>${inp('pos', i, 'amount', p.amount, 'number', 'min="0"')}</td>
+        <td class="num">${po ? num(po.totalQty) : '—'}</td>
+        <td>${po && otherLcs(po).length ? otherLcs(po).map(no => `<span class="tag gray" dir="ltr">${esc(no)}</span>`).join(' ') : '—'}</td>
         <td>${delBtn('pos', i)}</td>
       </tr>`;
-    }).join('') || '<tr><td colspan="6" class="empty">لا توجد أوامر.</td></tr>';
+    }).join('') || '<tr><td colspan="5" class="empty">لا توجد أوامر.</td></tr>';
   }
 
   function drawAmds() {
@@ -238,7 +248,7 @@
         <td dir="ltr" style="text-align:right">${esc(s.invoiceNo)}</td>
         <td>${esc(s.poNo)}</td>
         <td>${esc(s.shipDate || '—')}</td>
-        <td class="num">${money(s.value)}</td>
+        <td class="num">${s.value ? money(s.value) : '<span class="tag bad">بدون قيمة فاتورة</span>'}</td>
         <td>${s.status === SHIPPED ? (active ? '<span class="tag ok">مقدمة للبنك</span>' : '<span class="tag wait">مشحونة — لم تُقدَّم</span>') : '<span class="tag gray">لم تُعمَّد</span>'}</td>
         <td>${btn}</td>
       </tr>`;
@@ -262,8 +272,7 @@
         <td>${editable ? `<select data-arr="pres" data-i="${i}" data-f="status">${PRES_STATES.map(s => `<option ${s === p.status ? 'selected' : ''}>${s}</option>`).join('')}</select>` : presTag(p)}</td>
         <td>${inp('pres', i, 'acceptedDate', p.acceptedDate, 'date')}</td>
         <td>${inp('pres', i, 'dueDate', p.dueDate, 'date', 'title="يُحسب تلقائيًا عند القبول إذا تُرك فارغًا"')}</td>
-        <td>${inp('pres', i, 'paidDate', p.paidDate, 'date')}</td>
-        <td>${inp('pres', i, 'paidAmount', p.paidAmount || '', 'number', 'min="0"')}</td>
+        <td>${presTag(p)}</td>
         <td>${delBtn('pres', i)}</td>
       </tr>`).join('') || '<tr><td colspan="10" class="empty">لم تُقدَّم مستندات بعد.</td></tr>';
   }
@@ -285,30 +294,57 @@
     const diff = pos.map(p => poOptions.find(o => o.id === p.poId)).filter(o => o && o.incoterm && inc && o.incoterm !== inc);
     $('lcIncWarn').innerHTML = diff.length ? `<span class="tag wait">يختلف عن أمر الشراء: ${diff.map(o => esc(o.poNo) + ' (' + esc(o.incoterm) + ')').join('، ')}</span>` : '';
     const cur = $('lc_currency').value;
+    const t0 = today();
     const amount = n($('lc_amount').value) + amds.reduce((t, a) => t + n(a.amountDelta), 0);
     const limit = amount * (1 + n($('lc_tolerance').value) / 100);
-    const allocated = pos.reduce((t, p) => t + n(p.amount), 0);
+    const usance = $('lc_payType').value === 'آجل' ? n($('lc_usanceDays').value) : 0;
+
+    // السداد بالتاريخ: المقبولة اللي حلّ تاريخ استحقاقها = مسددة، واللي لسه = على الآجل
+    const b = { paid: 0, notDue: 0, pending: 0, committed: 0 };
     const presented = {};
-    let used = 0;
-    pres.filter(p => p.status !== 'مرفوضة').forEach(p => { used += n(p.amount); if (p.shipmentId) presented[p.shipmentId] = 1; });
-    (current ? current.shipments || [] : []).filter(s => s.status === SHIPPED && !presented[s.id]).forEach(s => { used += n(s.value); });
-    const paid = pres.reduce((t, p) => t + n(p.paidAmount || (p.paidDate ? p.amount : 0)), 0);
+    const schedule = [];
+    pres.filter(p => p.status !== 'مرفوضة').forEach(p => {
+      const amt = n(p.amount);
+      if (p.shipmentId) presented[p.shipmentId] = 1;
+      if (p.status !== 'مقبولة') { b.pending += amt; schedule.push({ ...p, rest: amt, bucket: 'بانتظار قبول البنك' }); return; }
+      const due = dueOf(p);
+      if (due && due > t0) { b.notDue += amt; schedule.push({ ...p, dueDate: due, rest: amt, bucket: 'غير مستحقة', days: daysBetween(t0, due) }); }
+      else b.paid += amt;
+    });
+    (current ? current.shipments || [] : []).filter(s => s.status === SHIPPED && !presented[s.id]).forEach(s => { b.committed += n(s.value); });
+    const used = b.paid + b.notDue + b.pending + b.committed;
     let expiry = $('lc_expiryDate').value, latest = $('lc_latestShipDate').value;
     amds.forEach(a => { if (a.newExpiry) expiry = a.newExpiry; if (a.newLatestShip) latest = a.newLatestShip; });
 
+    const fromTxt = { 'الشحن': 'تاريخ الشحن', 'القبول': 'قبول المستندات', 'التقديم': 'تقديم المستندات' }[$('lc_usanceFrom').value] || 'تاريخ الشحن';
+    const tile = (label, v, cls, note) => `<div class="lc-tile ${cls || ''}"><small>${label}</small><b>${money(v)}</b>${note ? `<span>${note}</span>` : ''}</div>`;
     $('lcSummary').innerHTML = `
-      <div><span>المبلغ بعد التعديلات</span><b>${money(amount, cur)}</b></div>
-      <div><span>المخصص لأوامر الشراء</span><b class="${allocated > limit + 0.005 ? 'neg' : ''}">${money(allocated)}</b></div>
-      <div><span>المستخدم (شحنات + مستندات)</span><b>${money(used)}</b></div>
-      <div><span>المسدد</span><b>${money(paid)}</b></div>
-      <div><span>آخر شحن / الصلاحية</span><b>${esc(latest || '—')} / ${esc(expiry || '—')}</b></div>
-      <div class="grand"><span>المتاح</span><b>${money(limit - used, cur)}</b></div>`;
+      <div class="lc-row">
+        ${tile('مبلغ الاعتماد بعد التعديلات', amount, '', `${esc(cur)}${n($('lc_tolerance').value) ? ' · سماحية ±' + n($('lc_tolerance').value) + '%' : ''}`)}
+        ${tile('المسدد (حلّ تاريخ استحقاقه)', b.paid, 'ok')}
+        ${tile('على الآجل (لم يحلّ تاريخه)', b.notDue, 'wait', usance ? `آجل ${usance} يوم من ${fromTxt}` : '')}
+        ${tile('بانتظار قبول البنك', b.pending, b.pending ? 'wait' : '')}
+      </div>
+      <div class="lc-row">
+        ${tile('شحنات معمّدة لم تُقدَّم مستنداتها', b.committed, '', 'محجوزة من الرصيد')}
+        ${tile('الرصيد قبل خصم الآجل', limit - b.paid, 'acc', 'المبلغ − المسدد')}
+        ${tile('الرصيد بعد الخصم (المتاح للشحن)', limit - used, 'grand' + (limit - used < -0.005 ? ' bad' : ''), `آخر شحن ${esc(latest || '—')} · الصلاحية ${esc(expiry || '—')}`)}
+      </div>`;
+
+    schedule.sort((a, c) => String(a.dueDate || '9').localeCompare(String(c.dueDate || '9')));
+    const tag = r => r.bucket === 'غير مستحقة' ? `<span class="tag wait">باقي ${r.days} يوم</span>` : '<span class="tag gray">بانتظار قبول البنك</span>';
+    $('lcSchedule').innerHTML = schedule.length ? `
+      <div class="table-wrap" style="margin-top:12px"><table class="items">
+        <thead><tr><th>الفاتورة</th><th>التسلسل</th><th>تاريخ الاستحقاق (السداد)</th><th>المبلغ</th><th>الحالة</th></tr></thead>
+        <tbody>${schedule.map(r => `<tr><td dir="ltr" style="text-align:right">${esc(r.invoiceNo || '—')}</td><td>${esc(r.serial || '—')}</td><td>${esc(r.dueDate || '—')}</td><td class="num"><b>${money(r.rest, cur)}</b></td><td>${tag(r)}</td></tr>`).join('')}</tbody>
+        <tfoot><tr><td colspan="3">إجمالي اللي لم يحلّ تاريخه</td><td class="num"><b>${money(b.notDue + b.pending, cur)}</b></td><td></td></tr></tfoot>
+      </table></div>` : '<p class="sub small">كل المستندات المقبولة حلّ تاريخ استحقاقها (مسددة).</p>';
   }
 
   function readForm() {
     const lc = { id: current ? current.id : '' };
     FIELDS.forEach(f => { lc[f] = $('lc_' + f).value; });
-    lc.pos = pos.filter(p => p.poId).map(p => ({ poId: p.poId, amount: p.amount }));
+    lc.pos = pos.filter(p => p.poId).map(p => ({ poId: p.poId }));
     lc.amendments = amds;
     lc.presentations = pres;
     lc.charges = chgs;
