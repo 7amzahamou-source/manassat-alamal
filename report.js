@@ -39,10 +39,11 @@
   const freeTag = r => r.freeLeft == null ? '—'
     : `<span class="tag ${r.freeLeft < 0 ? 'bad' : r.freeLeft <= 3 ? 'wait' : 'gray'}">${r.freeLeft < 0 ? `متأخر ${-r.freeLeft} يوم` : r.freeLeft === 0 ? 'آخر يوم' : `باقي ${r.freeLeft} يوم`}</span>`;
 
-  /** قسم = عنوان + جدول + سطر إجمالي */
-  function section(id, title, note, heads, rows, rowFn, totals) {
+  /** قسم = عنوان + جدول + سطر إجمالي. widths = عرض الأعمدة (اختياري) */
+  function section(id, title, note, heads, rows, rowFn, totals, widths) {
     const body = rows.length
-      ? `<div class="table-wrap"><table class="compact">
+      ? `<div class="table-wrap"><table class="compact rp-t">
+          ${widths ? `<colgroup>${widths.map(w => `<col style="width:${w}">`).join('')}</colgroup>` : ''}
           <thead><tr>${heads.map(h => `<th>${h}</th>`).join('')}</tr></thead>
           <tbody>${rows.map(rowFn).join('')}</tbody>
           ${totals ? `<tfoot><tr>${totals(rows)}</tr></tfoot>` : ''}
@@ -53,21 +54,58 @@
       ${body}</section>`;
   }
 
-  /** جدول البضائع (بند لكل موديل) */
-  function goods(id, title, note, rows, extra) {
-    const heads = ['أمر الشراء', 'المورد', 'الموديل', 'الكمية', 'الحاويات'].concat(extra.map(e => e[0]));
-    return section(id, title, note, heads, rows,
-      r => `<tr>${td(esc(r.poNo))}${td(esc(r.supplier))}${td(ltr(r.model))}${td(num(r.qty), 'num')}${td(num(r.containers) || '—', 'num')}${extra.map(e => td(e[1](r))).join('')}</tr>`,
-      list => `${td('الإجمالي')}${td('')}${td('')}${td(num(list.reduce((t, r) => t + r.qty, 0)), 'num')}${td(num(list.reduce((t, r) => t + r.containers, 0)), 'num')}${extra.map(() => td('')).join('')}`);
-  }
+  /* ===== خلايا مختصرة: سطر رئيسي + سطر فرعي ===== */
+  const two = (main, sub, cls) => `<td${cls ? ` class="${cls}"` : ''}><b>${main}</b>${sub ? `<small>${sub}</small>` : ''}</td>`;
+  const chipList = (items, max) => {
+    const more = items.length - max;
+    return `<div class="mchips">${items.slice(0, max).map(([m, q]) =>
+      `<span class="mchip" dir="ltr">${esc(m)}${q != null ? ` <i>${num(q)}</i>` : ''}</span>`).join('')}${more > 0
+      ? `<span class="mchip more" title="${esc(items.slice(max).map(([m, q]) => m + (q != null ? ': ' + num(q) : '')).join('\n'))}">+${more}</span>` : ''}</div>`;
+  };
+  const etaTag = (eta, today) => {
+    if (!eta) return '';
+    const d = daysBetween(today, eta);
+    return d < 0 ? ` <span class="tag bad">تجاوز ${-d} يوم</span>` : d <= 7 ? ` <span class="tag wait">باقي ${d} يوم</span>` : '';
+  };
 
-  /** جدول حاويات */
-  function boxes(id, title, note, rows, extra) {
-    const heads = ['الحاوية', 'التسلسل', 'أمر الشراء', 'الموديل', 'الكمية'].concat(extra.map(e => e[0]));
-    return section(id, title, note, heads, rows,
-      r => `<tr>${td(`<b>${ltr(r.containerNo)}</b>`)}${td(esc(r.serial))}${td(esc(r.poNo))}${td(ltr(r.model))}${td(num(r.qty), 'num')}${extra.map(e => td(e[1](r))).join('')}</tr>`,
-      list => `${td('الإجمالي')}${td('')}${td('')}${td('')}${td(num(list.reduce((t, r) => t + r.qty, 0)), 'num')}${extra.map(() => td('')).join('')}`);
+  /** بنود البضائع ← شحنة واحدة لكل (طلب/تسلسل + أمر شراء) مع موديلاتها */
+  function groupGoods(rows) {
+    const g = {};
+    rows.forEach(r => {
+      const k = (r.serial || r.requestCode || r.invoiceNo) + '|' + r.poNo;
+      const x = g[k] = g[k] || { ...r, models: [], qty: 0, containers: 0 };
+      x.models.push([r.model, r.qty]);
+      x.qty += r.qty;
+      x.containers += r.containers;
+    });
+    return Object.values(g);
   }
+  const goodsTotals = (cols, label) => list => `<td>الإجمالي — ${num(list.length)} ${label}</td><td></td><td></td><td class="num"><b>${num(list.reduce((t, r) => t + r.qty, 0))}</b><small>${num(list.reduce((t, r) => t + r.containers, 0))} حاوية</small></td>${'<td></td>'.repeat(cols - 4)}`;
+
+  /** الحاويات ← مجموعة لكل تسلسل (فاتورة) */
+  function groupBoxes(rows) {
+    const g = {};
+    rows.forEach(c => {
+      const k = c.serial + '|' + c.invoiceNo;
+      const x = g[k] = g[k] || { serial: c.serial, invoiceNo: c.invoiceNo, poNo: c.poNo, arrivalPort: c.arrivalPort, eta: c.eta,
+        list: [], qty: 0, decls: new Set(), whs: new Set(), discharge: '', received: '', freeLeft: null, freeLast: '' };
+      x.list.push(c);
+      x.qty += c.qty;
+      if (c.declarationNo) x.decls.add(c.declarationNo);
+      if (c.warehouse) x.whs.add(c.warehouse);
+      if (c.dischargeDate && (!x.discharge || c.dischargeDate < x.discharge)) x.discharge = c.dischargeDate;
+      if (c.receivedDate && c.receivedDate > x.received) x.received = c.receivedDate;
+      if (c.freeLeft != null && (x.freeLeft == null || c.freeLeft < x.freeLeft)) { x.freeLeft = c.freeLeft; x.freeLast = c.freeLast; }
+    });
+    return Object.values(g).sort((a, b) => Number(a.serial) - Number(b.serial));
+  }
+  const boxChips = x => {
+    const nums = x.list.filter(c => c.containerNo).map(c => [c.containerNo, null]);
+    const none = x.list.length - nums.length;
+    return chipList(nums, 4) + (none ? `<small class="rp-none">${num(none)} بدون رقم</small>` : '');
+  };
+  const boxTotals = cols => list => `<td>الإجمالي — ${num(list.length)} فاتورة</td><td></td><td><b>${num(list.reduce((t, x) => t + x.list.length, 0))} حاوية</b></td><td class="num"><b>${num(list.reduce((t, x) => t + x.qty, 0))}</b></td>${'<td></td>'.repeat(cols - 4)}`;
+  const freeCell = x => x.freeLeft == null ? '<td>—</td>' : two(freeTag({ freeLeft: x.freeLeft }), x.freeLast ? 'آخر يوم ' + esc(x.freeLast) : '');
 
   function render(d) {
     const dt = new Date(d.today + 'T00:00:00');
@@ -89,23 +127,34 @@
     $('rpToc').innerHTML = tiles.slice(0, 7).map(t => `<a href="#" data-to="${t[4]}">${t[1]}</a>`).join('') +
       '<a href="#" data-to="rp-wh">حسب المستودع</a><a href="#" data-to="rp-lcs">الاعتمادات البنكية</a><a href="#" data-to="rp-rates">أسعار الشحن</a>';
 
+    const t0 = d.today;
+    const mfg = groupGoods(d.goods.mfg), ready = groupGoods(d.goods.ready), shipped = groupGoods(d.goods.shipped);
+    const atSea = groupBoxes(c.atSea), noDecl = groupBoxes(c.noDecl), inYard = groupBoxes(c.inYard), recv = groupBoxes(c.received);
+    const route = r => (r.port && r.port !== '—') || r.arrivalPort ? `${esc(r.port && r.port !== '—' ? r.port : '؟')} ← ${esc(r.arrivalPort || '؟')}` : '—';
+    const poCell = r => two(esc(r.poNo), `<span class="clip" title="${esc(r.supplier || '')}">${esc(r.supplier || '')}</span>`);
+    const qtyCell = r => two(num(r.qty), `${num(r.containers) || '—'} حاوية`, 'num');
+    const boxHead = ['التسلسل / الفاتورة', 'أمر الشراء', 'الحاويات', 'الكمية'];
+    const boxRow = (x, extra) => `<tr>${two(esc(x.serial), `فاتورة <span dir="ltr">${esc(x.invoiceNo)}</span>`)}${td(esc(x.poNo))}<td>${boxChips(x)}</td>${td(`<b>${num(x.qty)}</b>`, 'num')}${extra(x)}</tr>`;
+
     const html = [
-      goods('rp-mfg', '1. البضائع قيد التصنيع', 'طلبات شحن تاريخ جاهزيتها لم يحن بعد', d.goods.mfg,
-        [['الفاتورة', r => ltr(r.invoiceNo)], ['ميناء التحميل', r => esc(r.port)], ['تاريخ الجاهزية', r => esc(r.readyDate)]]),
-      goods('rp-ready', '2. البضائع بانتظار تعميد الشحن', 'جاهزة ولم تُعمّد بعد', d.goods.ready,
-        [['الفاتورة', r => ltr(r.invoiceNo)], ['ميناء التحميل', r => esc(r.port)], ['جاهزة منذ', r => esc(r.readyDate)],
-         ['الفحص', r => `<span class="tag ${['مجتاز', 'معفى'].includes(r.inspection) ? 'ok' : 'wait'}">${esc(r.inspection || 'لم يُفحص')}</span>`]]),
-      goods('rp-shipped', '3. البضائع المشحونة', 'شحنات معمّدة لم يكتمل استلام حاوياتها', d.goods.shipped,
-        [['التسلسل', r => esc(r.serial)], ['الفاتورة', r => ltr(r.invoiceNo)], ['الشحن ← الوصول', r => `${esc(r.port)} ← ${esc(r.arrivalPort || '—')}`],
-         ['تاريخ الشحن', r => esc(r.shipDate || '—')], ['الوصول المتوقع', r => esc(r.eta || '—')]]),
-      boxes('rp-sea', '4. الحاويات في البحر', 'معمّدة ولم تُفرّغ بعد', c.atSea,
-        [['ميناء الوصول', r => esc(r.arrivalPort || '—')], ['الوصول المتوقع', r => `${esc(r.eta || '—')}${r.eta && r.eta < d.today ? ' <span class="tag bad">تجاوز</span>' : ''}`]]),
-      boxes('rp-nodecl', '5. حاويات في التخليص: وصلت وبدون بيان جمركي', 'فُرّغت ولم يُسجّل لها بيان', c.noDecl,
-        [['ميناء الوصول', r => esc(r.arrivalPort || '—')], ['التفريغ', r => esc(r.dischargeDate)], ['آخر يوم مجاني', r => esc(r.freeLast || '—')], ['فترة السماح', freeTag]]),
-      boxes('rp-yard', '6. حاويات في ساحات المخلص الجمركي', 'لها بيان جمركي ولم تُستلم في المستودع', c.inYard,
-        [['البيان', r => ltr(r.declarationNo)], ['التفريغ', r => esc(r.dischargeDate)], ['آخر يوم مجاني', r => esc(r.freeLast || '—')], ['فترة السماح', freeTag]]),
-      boxes('rp-recv', '7. الحاويات المستلمة', 'في المستودع ولم يُرجع فارغها', c.received,
-        [['المستودع', r => esc(r.warehouse || '—')], ['تاريخ الاستلام', r => esc(r.receivedDate)], ['آخر يوم مجاني', r => esc(r.freeLast || '—')], ['فترة السماح', freeTag]]),
+      section('rp-mfg', '1. البضائع قيد التصنيع', 'طلبات شحن تاريخ جاهزيتها لم يحن بعد', ['أمر الشراء / المورد', 'الفاتورة / الطلب', 'الموديلات', 'الكمية / الحاويات', 'الجاهزية / ميناء التحميل'], mfg,
+        r => `<tr>${poCell(r)}${two(`<span dir="ltr">${esc(r.invoiceNo || '—')}</span>`, `<span dir="ltr">${esc(r.requestCode)}</span>`)}<td>${chipList(r.models, 6)}</td>${qtyCell(r)}${two(esc(r.readyDate), esc(r.port))}</tr>`,
+        goodsTotals(5, 'طلب'), ['20%', '16%', '34%', '12%', '18%']),
+      section('rp-ready', '2. البضائع بانتظار تعميد الشحن', 'جاهزة ولم تُعمّد بعد', ['أمر الشراء / المورد', 'الفاتورة / الطلب', 'الموديلات', 'الكمية / الحاويات', 'جاهزة منذ / الميناء', 'الفحص'], ready,
+        r => { const late = daysBetween(r.readyDate, t0);
+          return `<tr>${poCell(r)}${two(`<span dir="ltr">${esc(r.invoiceNo || '—')}</span>`, `<span dir="ltr">${esc(r.requestCode)}</span>`)}<td>${chipList(r.models, 6)}</td>${qtyCell(r)}${two(esc(r.readyDate) + (late > 7 ? ` <span class="tag wait">${late} يوم</span>` : ''), esc(r.port))}<td><span class="tag ${['مجتاز', 'معفى'].includes(r.inspection) ? 'ok' : 'wait'}">${esc(r.inspection || 'لم يُفحص')}</span></td></tr>`; },
+        goodsTotals(6, 'طلب'), ['18%', '15%', '31%', '11%', '15%', '10%']),
+      section('rp-shipped', '3. البضائع المشحونة', 'شحنات معمّدة لم يكتمل استلام حاوياتها', ['التسلسل / الفاتورة', 'أمر الشراء / المورد', 'الموديلات', 'الكمية / الحاويات', 'المسار', 'الشحن / الوصول المتوقع'], shipped,
+        r => `<tr>${two(esc(r.serial), `<span dir="ltr">${esc(r.invoiceNo)}</span>`)}${poCell(r)}<td>${chipList(r.models, 4)}</td>${qtyCell(r)}${two(route(r), '')}${two(esc(r.eta || '—'), 'شُحنت ' + esc(r.shipDate || '—') + etaTag(r.eta, t0))}</tr>`,
+        goodsTotals(6, 'شحنة'), ['13%', '19%', '29%', '11%', '12%', '16%']),
+      section('rp-sea', '4. الحاويات في البحر', 'معمّدة ولم تُفرّغ بعد — مجمّعة حسب الفاتورة', boxHead.concat(['ميناء الوصول / الوصول المتوقع']), atSea,
+        x => boxRow(x, x => two(esc(x.arrivalPort || '—'), esc(x.eta || '—') + etaTag(x.eta, t0))), boxTotals(5), ['15%', '15%', '38%', '12%', '20%']),
+      section('rp-nodecl', '5. حاويات في التخليص: وصلت وبدون بيان جمركي', 'فُرّغت ولم يُسجّل لها بيان', boxHead.concat(['التفريغ / الميناء', 'فترة السماح']), noDecl,
+        x => boxRow(x, x => two(esc(x.discharge || '—'), esc(x.arrivalPort || '')) + freeCell(x)), boxTotals(6), ['14%', '13%', '33%', '10%', '15%', '15%']),
+      section('rp-yard', '6. حاويات في ساحات المخلص الجمركي', 'لها بيان جمركي ولم تُستلم في المستودع', boxHead.concat(['البيان / التفريغ', 'فترة السماح']), inYard,
+        x => boxRow(x, x => two(`<span dir="ltr">${esc([...x.decls].join('، ') || '—')}</span>`, 'تفريغ ' + esc(x.discharge || '—')) + freeCell(x)), boxTotals(6), ['14%', '13%', '33%', '10%', '15%', '15%']),
+      section('rp-recv', '7. الحاويات المستلمة', 'في المستودع ولم يُرجع فارغها', boxHead.concat(['المستودع / الاستلام', 'فترة السماح']), recv,
+        x => boxRow(x, x => two(esc([...x.whs].join('، ') || '—'), 'استلام ' + esc(x.received || '—')) + freeCell(x)), boxTotals(6), ['14%', '13%', '33%', '10%', '15%', '15%']),
       section('rp-wh', '8. الحاويات حسب المستودع', 'كل الحاويات المستلمة', ['المستودع', 'الحاويات المستلمة', 'منها لم يُرجع فارغها', 'الكمية المستلمة', 'الموديلات'], d.warehouses,
         w => `<tr>${td(`<b>${esc(w.warehouse)}</b>`)}${td(num(w.containers), 'num')}${td(num(w.notReturned), 'num')}${td(num(w.qty), 'num')}${td(w.models.slice(0, 6).map(m => `<span dir="ltr">${esc(m.model)}</span>: ${num(m.qty)}`).join('، ') + (w.models.length > 6 ? '…' : ''), 'wh-models')}</tr>`,
         list => `${td('الإجمالي')}${td(num(list.reduce((t, w) => t + w.containers, 0)), 'num')}${td(num(list.reduce((t, w) => t + w.notReturned, 0)), 'num')}${td(num(list.reduce((t, w) => t + w.qty, 0)), 'num')}${td('')}`),
@@ -127,9 +176,12 @@
   function lcsSection(rows, today) {
     const lcTag = r => `<span class="tag ${r.state === 'منتهي' ? 'bad' : r.state === 'مفتوح' ? 'ok' : 'gray'}">${esc(r.state)}</span>`;
     const exp = r => `${esc(r.expiry || '—')}${r.state !== 'منتهي' && r.daysToExpiry != null && r.daysToExpiry <= 15 ? ` <span class="tag wait">${r.daysToExpiry} يوم</span>` : ''}`;
-    const due = r => r.nextDue ? `${esc(r.nextDue)}${r.nextDue < today ? ' <span class="tag bad">متأخر</span>' : ''}` : '—';
-    return section('rp-lcs', '9. الاعتمادات البنكية القائمة', 'كل الاعتمادات غير المقفلة', ['رقم الاعتماد', 'البنك', 'أوامر الشراء', 'الشرط', 'الدفع', 'المبلغ', 'المستخدم', 'المتاح', 'المسدد', 'على الآجل', 'آخر شحن', 'الصلاحية', 'الاستحقاق القادم', 'الحالة'], rows,
-      r => `<tr>${td(`<b>${ltr(r.lcNo)}</b>`)}${td(esc(r.bank))}${td(esc(r.pos))}${td(ltr(r.incoterm))}${td(esc(r.payType))}${td(money(r.amount, r.currency), 'num')}${td(money(r.used), 'num')}${td(`<b>${money(r.available)}</b>`, 'num')}${td(money(r.paid), 'num')}${td(money(r.notDue), 'num')}${td(esc(r.latestShip || '—'))}${td(exp(r))}${td(due(r))}${td(lcTag(r))}</tr>`);
+    const due = r => r.nextDue ? esc(r.nextDue) + etaTag(r.nextDue, today) : '—';
+    const cur = r => r.currency || '';
+    return section('rp-lcs', '9. الاعتمادات البنكية القائمة', 'كل الاعتمادات غير المقفلة',
+      ['الاعتماد / البنك', 'أوامر الشراء', 'الشرط / الدفع', 'المبلغ', 'المستخدم / المتاح', 'المسدد / على الآجل', 'آخر شحن / الصلاحية', 'الاستحقاق القادم'], rows,
+      r => `<tr>${two(`<span dir="ltr">${esc(r.lcNo)}</span>`, esc(r.bank))}<td><span class="clip2" dir="ltr">${esc(r.pos || '—')}</span></td>${two(`<span dir="ltr">${esc(r.incoterm || '—')}</span>`, esc(r.payType))}${two(money(r.amount), esc(cur(r)), 'num')}${two(money(r.used), 'متاح <b class="' + (r.available < 0 ? 'neg' : '') + '">' + money(r.available) + '</b>', 'num')}${two(money(r.paid), 'آجل ' + money(r.notDue), 'num')}${two(esc(r.latestShip || '—'), exp(r))}<td>${due(r)}<div style="margin-top:3px">${lcTag(r)}</div></td></tr>`,
+      null, ['14%', '15%', '9%', '11%', '13%', '13%', '13%', '12%']);
   }
 
   function ratesSection(r) {
