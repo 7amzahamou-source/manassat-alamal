@@ -1,6 +1,6 @@
 /**
  * منصة العمل — الخادم
- * الخطوة 16: أسعار الشحن إلى الدمام وجدة ورابغ
+ * الخطوة 25: السداد بالتاريخ — إذا حلّ تاريخ الاستحقاق تُعتبر الفاتورة مسددة
  */
 
 const SESSION_HOURS = 6;
@@ -21,7 +21,8 @@ const PAGES = {
   files: ['none', 'view', 'edit', 'full'],
   dashboard: ['none', 'view'],
   report: ['none', 'view'],
-  rates: ['none', 'view', 'edit', 'full']
+  rates: ['none', 'view', 'edit', 'full'],
+  lcs: ['none', 'view', 'edit', 'full']
 };
 
 const CERT_STATES = ['لا تحتاج', 'غير مصدرة', 'قيد الإصدار', 'صادرة'];
@@ -41,8 +42,8 @@ const TABLES = {
     key: 'id',
     headers: ['id', 'poNo', 'date', 'department', 'supplier', 'currency', 'incoterm', 'payMethod',
               'depositPct', 'notes', 'status', 'items', 'totalQty', 'totalValue',
-              'createdBy', 'createdAt', 'updatedBy', 'updatedAt', 'approvedBy', 'approvedAt'],
-    json: ['items'],
+              'createdBy', 'createdAt', 'updatedBy', 'updatedAt', 'approvedBy', 'approvedAt', 'ports'],
+    json: ['items', 'ports'],
     numbers: ['depositPct', 'totalQty', 'totalValue']
   },
   models: {
@@ -60,9 +61,9 @@ const TABLES = {
               'lines', 'totalQty', 'totalContainers', 'status', 'serial', 'approvalNo', 'forwarder',
               'shipDate', 'eta', 'arrivalPort', 'broker', 'freight', 'freightCurrency',
               'inspection', 'inspectionNote', 'notes',
-              'createdBy', 'createdAt', 'updatedBy', 'updatedAt', 'shippedBy', 'shippedAt', 'freeDays'],
+              'createdBy', 'createdAt', 'updatedBy', 'updatedAt', 'shippedBy', 'shippedAt', 'freeDays', 'lcId', 'invoiceValue'],
     json: ['lines'],
-    numbers: ['totalQty', 'totalContainers', 'freight']
+    numbers: ['totalQty', 'totalContainers', 'freight', 'invoiceValue']
   },
   containers: {
     sheet: 'الحاويات',
@@ -90,6 +91,16 @@ const TABLES = {
     headers: ['date', 'prices', 'updatedBy', 'updatedAt'],
     json: ['prices'],
     numbers: []
+  },
+  lcs: {
+    sheet: 'الاعتمادات البنكية',
+    key: 'id',
+    headers: ['id', 'lcNo', 'bank', 'supplier', 'currency', 'amount', 'tolerance', 'payType', 'usanceDays',
+              'issueDate', 'expiryDate', 'latestShipDate', 'presentationDays', 'partial',
+              'pos', 'amendments', 'presentations', 'charges', 'status', 'notes',
+              'createdBy', 'createdAt', 'updatedBy', 'updatedAt', 'closedBy', 'closedAt', 'incoterm', 'usanceFrom'],
+    json: ['pos', 'amendments', 'presentations', 'charges'],
+    numbers: ['amount', 'tolerance', 'usanceDays', 'presentationDays']
   }
 };
 
@@ -157,6 +168,12 @@ function doPost(e) {
       case 'listRates':         return json_(listRates_(data));
       case 'saveRates':         return json_(saveRates_(data));
       case 'deleteRates':       return json_(deleteRates_(data));
+      // الاعتمادات البنكية
+      case 'listLcs':           return json_(listLcs_(data));
+      case 'saveLc':            return json_(saveLc_(data));
+      case 'closeLc':           return json_(closeLc_(data));
+      case 'reopenLc':          return json_(reopenLc_(data));
+      case 'deleteLc':          return json_(deleteLc_(data));
       default: throw new Error('العملية غير مدعومة');
     }
   } catch (err) {
@@ -390,6 +407,8 @@ function listOrders_(data) {
   const user = requireUser_(data.token);
   requirePage_(user, 'orders', 'view');
   const shipments = readAll_('shipments');
+  const lcs = readAll_('lcs');
+  const today = todayText_();
   const orders = readAll_('orders')
     .filter(o => deptAllowed_(user, o.department))
     .map(o => {
@@ -397,6 +416,11 @@ function listOrders_(data) {
       const mine = shipments.filter(s => s.poId === o.id);
       o.requestedQty = mine.reduce((t, s) => t + (Number(s.totalQty) || 0), 0);
       o.shippedQty = mine.filter(s => s.status === SHIPPED).reduce((t, s) => t + (Number(s.totalQty) || 0), 0);
+      o.lcs = lcs.filter(l => (l.pos || []).some(p => p.poId === o.id)).map(l => {
+        const e = lcEffective_(l);
+        return { id: l.id, lcNo: l.lcNo, bank: l.bank, amount: e.amount, currency: l.currency, payType: l.payType,
+                 usanceDays: l.usanceDays, expiry: e.expiry, state: lcState_(l, today) };
+      });
       return o;
     })
     .sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt));
@@ -481,9 +505,17 @@ function deleteOrder_(data) {
     if (!order) throw new Error('الأمر غير موجود');
     if (!deptAllowed_(user, order.department)) throw new Error('هذا الأمر يخص قسمًا آخر');
     if (readAll_('shipments').some(s => s.poId === order.id)) throw new Error('لا يمكن حذف أمر عليه طلبات شحن');
+    if (readAll_('lcs').some(l => (l.pos || []).some(p => p.poId === order.id))) throw new Error('لا يمكن حذف أمر مربوط باعتماد بنكي');
     tableSheet_('orders').deleteRow(findRow_('orders', order.id));
     return { success: true, message: 'تم حذف الأمر' };
   });
+}
+
+/** شروط التسليم المعتمدة (C&F = CFR) */
+const INCOTERMS = ['EXW', 'FCA', 'FOB', 'CFR', 'CIF', 'CPT', 'CIP', 'DAP', 'DPU', 'DDP'];
+function cleanIncoterm_(v) {
+  v = String(v || '').trim().toUpperCase().replace('C&F', 'CFR').replace('CNF', 'CFR');
+  return INCOTERMS.indexOf(v) >= 0 ? v : '';
 }
 
 /** يتحقق من بيانات الأمر وينظفها ويحسب الإجماليات */
@@ -495,7 +527,9 @@ function cleanOrder_(o) {
     department: text(o.department),
     supplier: text(o.supplier),
     currency: text(o.currency) || 'USD',
-    incoterm: text(o.incoterm) || 'FOB',
+    incoterm: cleanIncoterm_(o.incoterm),
+    ports: (Array.isArray(o.ports) ? o.ports : String(o.ports || '').split(/[,،\n]/))
+      .map(p => cleanPort_(p)).filter((p, i, a) => p && a.indexOf(p) === i).slice(0, 10),
     payMethod: text(o.payMethod) || 'T/T',
     depositPct: Number(o.depositPct) || 0,
     notes: text(o.notes)
@@ -505,6 +539,8 @@ function cleanOrder_(o) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(order.date)) throw new Error('حدد تاريخ الأمر');
   if (!order.department) throw new Error('اختر القسم');
   if (!order.supplier) throw new Error('أدخل المورد / المصنع');
+  if (!order.incoterm) throw new Error('اختر شرط التسليم (Incoterm)');
+  if (!order.ports.length) throw new Error('أضف ميناء شحن واحد على الأقل');
   if (order.depositPct < 0 || order.depositPct > 100) throw new Error('الدفعة المقدمة بين 0 و 100%');
 
   const items = (Array.isArray(o.items) ? o.items : [])
@@ -512,7 +548,6 @@ function cleanOrder_(o) {
       model: text(i.model),
       description: text(i.description),
       qty: Number(i.qty) || 0,
-      price: Number(i.price) || 0,
       containers: Number(i.containers) || 0
     }))
     .filter(i => i.model || i.qty);
@@ -521,12 +556,12 @@ function cleanOrder_(o) {
   items.forEach((i, n) => {
     if (!i.model) throw new Error('البند ' + (n + 1) + ': أدخل الموديل');
     if (!(i.qty > 0)) throw new Error('البند ' + (n + 1) + ': الكمية يجب أن تكون أكبر من صفر');
-    if (i.price < 0 || i.containers < 0) throw new Error('البند ' + (n + 1) + ': قيمة غير صحيحة');
+    if (i.containers < 0) throw new Error('البند ' + (n + 1) + ': قيمة غير صحيحة');
   });
 
   order.items = items;
   order.totalQty = items.reduce((s, i) => s + i.qty, 0);
-  order.totalValue = Math.round(items.reduce((s, i) => s + i.qty * i.price, 0) * 100) / 100;
+  order.totalValue = '';   // بدون أسعار: القيمة تُسجّل على الفاتورة في طلب الشحن
   return order;
 }
 
@@ -725,9 +760,19 @@ function listShipments_(data) {
       if (c.receivedDate) counts[k].received++;
     });
   }
-  const list = readAll_('shipments')
+  const lcNo = {};
+  const allShipments = readAll_('shipments');
+  const orders = readAll_('orders');
+  const lcViews = lcViews_(readAll_('lcs'), allShipments, orders);
+  const payOf = {};
+  orders.forEach(o => { payOf[o.id] = o.payMethod; });
+  lcViews.forEach(l => { lcNo[l.id] = l.lcNo; });
+  const list = allShipments
     .filter(s => (s.status === SHIPPED) === shipped && deptAllowed_(user, s.department))
-    .map(s => Object.assign(s, { state: shipState_(s) }, shipped ? {
+    .map(s => Object.assign(s, {
+      state: shipState_(s), lcNo: (lcNo[s.lcId] || ''), payMethod: payOf[s.poId] || '',
+      lcChoices: lcChoices_(lcViews, s.poId)
+    }, shipped ? {
       containerRows: (counts[s.id] || {}).total || 0,
       receivedContainers: (counts[s.id] || {}).received || 0
     } : {}))
@@ -745,16 +790,35 @@ function shipmentOptions_(data) {
   const perContainer = {};
   readAll_('models').forEach(m => { if (m.perContainer) perContainer[m.code.toLowerCase()] = m.perContainer; });
 
+  const lcs = lcViews_(readAll_('lcs'), shipments, readAll_('orders'));
   const orders = readAll_('orders')
     .filter(o => o.status === 'معتمد' && deptAllowed_(user, o.department))
     .map(o => ({
       id: o.id, poNo: o.poNo, supplier: o.supplier, department: o.department, date: o.date,
+      payMethod: o.payMethod, currency: o.currency, incoterm: o.incoterm, ports: o.ports || [], lcs: lcChoices_(lcs, o.id),
       lines: poAvailability_(o, shipments, '').map(l =>
         Object.assign(l, { perContainer: perContainer[String(l.model).toLowerCase()] || 0 }))
     }))
     .filter(o => o.lines.some(l => l.available > 0))
     .sort((a, b) => b.date.localeCompare(a.date));
   return { success: true, orders: orders };
+}
+
+/** الاعتمادات المفتوحة اللي تغطي أمر شراء (لقائمة الاختيار في الشحن) */
+function lcChoices_(views, poId) {
+  return views.filter(l => l.state !== 'مقفل' && (l.pos || []).some(p => p.poId === poId))
+    .map(l => ({ id: l.id, lcNo: l.lcNo, bank: l.bank, currency: l.currency, available: l.available,
+                 expiry: l.effExpiry, latestShip: l.effLatestShip, state: l.state }));
+}
+
+/** يتحقق من ربط الشحنة باعتماد (عند الإنشاء/التعديل) */
+function checkLcLink_(lcId, poId) {
+  if (!lcId) return '';
+  const lc = readAll_('lcs').find(l => l.id === String(lcId));
+  if (!lc) throw new Error('الاعتماد البنكي غير موجود');
+  if (lc.status === 'مقفل') throw new Error('الاعتماد ' + lc.lcNo + ' مقفل');
+  if (!(lc.pos || []).some(p => p.poId === poId)) throw new Error('الاعتماد ' + lc.lcNo + ' لا يغطي أمر الشراء هذا');
+  return lc.id;
 }
 
 function createShipment_(data) {
@@ -784,6 +848,7 @@ function createShipment_(data) {
       .map(l => ({ model: text(l.model, 60), qty: Number(l.qty) || 0, containers: Number(l.containers) || 0 }))
       .filter(l => l.qty > 0);
     if (!lines.length) throw new Error('حدد كمية أكبر من صفر لموديل واحد على الأقل');
+    if (money_(input.invoiceValue) < 0) throw new Error('قيمة الفاتورة غير صحيحة');
 
     lines.forEach(l => {
       const a = avail[l.model.toLowerCase()];
@@ -814,7 +879,9 @@ function createShipment_(data) {
       freight: 0, freightCurrency: 'USD', inspection: 'لم يُفحص', inspectionNote: '',
       notes: text(input.notes, 500),
       createdBy: user.username, createdAt: now, updatedBy: user.username, updatedAt: now,
-      shippedBy: '', shippedAt: ''
+      shippedBy: '', shippedAt: '', freeDays: '',
+      lcId: checkLcLink_(input.lcId, po.id),
+      invoiceValue: money_(input.invoiceValue)
     };
     writeRecord_('shipments', shipment);
     shipment.state = shipState_(shipment);
@@ -852,8 +919,19 @@ function updateShipment_(data) {
       inspection: ['لم يُفحص', 'مجتاز', 'مرفوض', 'معفى'].indexOf(input.inspection) >= 0 ? input.inspection : s.inspection,
       inspectionNote: text(input.inspectionNote),
       notes: text(input.notes, 500),
-      freeDays: input.freeDays === '' || input.freeDays == null ? '' : Math.max(0, Math.round(Number(input.freeDays) || 0))
+      freeDays: input.freeDays === '' || input.freeDays == null ? '' : Math.max(0, Math.round(Number(input.freeDays) || 0)),
+      invoiceValue: input.invoiceValue === undefined ? s.invoiceValue : money_(input.invoiceValue)
     };
+    if (fields.invoiceValue < 0) throw new Error('قيمة الفاتورة غير صحيحة');
+    if (input.lcId !== undefined && String(input.lcId || '') !== String(s.lcId || '')) {
+      if (s.lcId) {
+        const old = readAll_('lcs').find(l => l.id === s.lcId);
+        if (old && (old.presentations || []).some(p => p.shipmentId === s.id && p.status !== 'مرفوضة')) {
+          throw new Error('مستندات هذه الشحنة مقدمة على الاعتماد ' + old.lcNo + '؛ لا يمكن تغيير الاعتماد');
+        }
+      }
+      fields.lcId = checkLcLink_(input.lcId, s.poId);
+    }
     if (s.status !== SHIPPED) {
       const rd = date(input.readyDate, 'تاريخ الجاهزية');
       if (rd) fields.readyDate = rd;
@@ -897,12 +975,13 @@ function confirmShipment_(data) {
     if (!s.shipDate) missing.push('تاريخ الشحن');
     if (!s.arrivalPort) missing.push('ميناء الوصول');
     if (!s.invoiceNo) missing.push('رقم الفاتورة');
-    if (!s.approvalNo) missing.push('رقم الاعتماد');
+    if (!s.approvalNo) missing.push('رقم اعتماد الشحن');
     if (s.freeDays === '' || s.freeDays == null) missing.push('فترة السماح (الأيام المجانية)');
     if (missing.length) throw new Error('لتعميد الشحن أكمل: ' + missing.join('، '));
     if (['مجتاز', 'معفى'].indexOf(s.inspection) < 0) {
       throw new Error('لا يمكن تعميد الشحن قبل اجتياز فحص ما قبل الشحن (أو تسجيله «معفى»)');
     }
+    checkLcForShipment_(s, all);
 
     // نفس الفاتورة = نفس التسلسل
     const shipped = all.filter(x => x.status === SHIPPED);
@@ -933,6 +1012,9 @@ function unconfirmShipment_(data) {
     if (s.status !== SHIPPED) throw new Error('الشحنة غير معمّدة');
     const mine = readAll_('containers').filter(c => c.shipmentId === s.id);
     if (mine.some(c => c.receivedDate)) throw new Error('لا يمكن إلغاء التعميد: فيه حاويات مستلمة من هذه الشحنة');
+    if (readAll_('lcs').some(l => (l.presentations || []).some(p => p.shipmentId === s.id && p.status !== 'مرفوضة'))) {
+      throw new Error('لا يمكن إلغاء التعميد: مستندات هذه الشحنة مقدمة للبنك');
+    }
     const file = readAll_('files').find(f => f.serial === s.serial);
     if (file && file.status === 'مقفل') throw new Error('لا يمكن إلغاء التعميد: ملف الشحنة مقفل');
     deleteWhere_('containers', c => c.shipmentId === s.id);
@@ -1256,15 +1338,14 @@ function buildFiles_(user) {
     if (!g.broker && s.broker) g.broker = s.broker;
     if (!g.forwarder && s.forwarder) g.forwarder = s.forwarder;
     g.freightOrig += Number(s.freight) || 0;
+    g.goodsValue += Number(s.invoiceValue) || 0;
+    if (!(Number(s.invoiceValue) > 0)) g.missingValue = (g.missingValue || 0) + 1;
 
     const po = orders[s.poId] || { items: [], currency: 'USD' };
     if (!g.currency) g.currency = po.currency || 'USD';
     (s.lines || []).forEach(l => {
-      const item = (po.items || []).find(i => String(i.model).toLowerCase() === String(l.model).toLowerCase()) || {};
-      const price = Number(item.price) || 0;
       const qty = Number(l.qty) || 0;
-      g.lines.push({ model: l.model, poNo: s.poNo, qty: qty, price: price, value: Math.round(qty * price * 100) / 100 });
-      g.goodsValue += qty * price;
+      g.lines.push({ model: l.model, poNo: s.poNo, qty: qty });
       g.totalQty += qty;
     });
   });
@@ -1497,6 +1578,7 @@ function dashboard_(data) {
   add('bad', certExpired, 'موديل شهادة SASO منتهية', 'models');
   add('wait', certSoon, 'موديل شهادة SASO تنتهي خلال 30 يوم', 'models');
   add('wait', models.filter(m => m.cert === 'غير مصدرة' || m.cert === 'قيد الإصدار').length, 'موديل شهادة SASO غير مصدرة أو قيد الإصدار', 'models');
+  const lcViews = lcAlerts_(user, pending, add);
   alerts.sort((a, b) => (a.level === 'bad' ? 0 : 1) - (b.level === 'bad' ? 0 : 1));
 
   // ===== الحاويات حسب الأيام المجانية =====
@@ -1533,7 +1615,8 @@ function dashboard_(data) {
       orderedQty: orderedQty, shippedQty: shippedQty,
       containers: containers.length, inTransit: cCount('في الطريق') + cCount('في الميناء'),
       openFiles: files.filter(f => f.state !== 'مقفل').length, closedFiles: files.filter(f => f.state === 'مقفل').length,
-      overdue: overdue.length
+      overdue: overdue.length,
+      openLcs: lcViews.filter(l => l.state !== 'مقفل').length
     },
     pipeline: pipeline,
     alerts: alerts,
@@ -1728,8 +1811,407 @@ function report_(data) {
       shipped: { qty: sum(lineRows(openShipped), 'qty'), containers: sum(lineRows(openShipped), 'containers'), invoices: openShipped.length }
     },
     warehouses: warehouses,
-    rates: { latest: latestRates_(rates), lastDate: rates.length ? rates[rates.length - 1].date : '' }
+    rates: { latest: latestRates_(rates), lastDate: rates.length ? rates[rates.length - 1].date : '' },
+    lcs: lcReport_(user)
   };
+}
+
+/* =========================================
+   الاعتمادات البنكية (L/C)
+   الاعتماد ممكن يغطي أكثر من أمر شراء، والأمر ممكن يكون له أكثر من اعتماد
+========================================= */
+
+const LC_PAY_TYPES = ['اطلاع', 'آجل'];
+const LC_PRES_STATES = ['مقدمة', 'بها ملاحظات', 'مقبولة', 'مرفوضة'];
+const round2_ = v => Math.round((Number(v) || 0) * 100) / 100;
+
+/** القيم الفعلية بعد التعديلات (المبلغ، الصلاحية، آخر موعد شحن) */
+function lcEffective_(l) {
+  let amount = Number(l.amount) || 0, expiry = l.expiryDate, latest = l.latestShipDate;
+  (l.amendments || []).forEach(a => {
+    amount += Number(a.amountDelta) || 0;
+    if (a.newExpiry) expiry = a.newExpiry;
+    if (a.newLatestShip) latest = a.newLatestShip;
+  });
+  return { amount: round2_(amount), expiry: expiry || '', latest: latest || '' };
+}
+
+function lcState_(l, today) {
+  if (l.status === 'مقفل') return 'مقفل';
+  const e = lcEffective_(l);
+  if (e.expiry && e.expiry < today) return 'منتهي';
+  return 'مفتوح';
+}
+
+/** قيمة الشحنة = إجمالي الفاتورة (ما فيه أسعار وحدات في المنصة) */
+function shipmentValue_(s) {
+  return round2_(Number(s.invoiceValue) || 0);
+}
+
+/** رقم مبلغ (يقبل الفواصل) */
+function money_(v) {
+  return round2_(String(v == null ? '' : v).replace(/,/g, ''));
+}
+
+/** المستخدم من الاعتماد: المستندات المقدمة + الشحنات المعمّدة اللي ما قُدّمت مستنداتها */
+function lcUsed_(l, shipments, ordersById, excludeShipmentId) {
+  const pres = (l.presentations || []).filter(p => p.status !== 'مرفوضة' && p.shipmentId !== excludeShipmentId);
+  const presented = {};
+  let used = 0;
+  pres.forEach(p => { used += Number(p.amount) || 0; if (p.shipmentId) presented[p.shipmentId] = true; });
+  shipments.filter(s => s.lcId === l.id && s.status === SHIPPED && s.id !== excludeShipmentId && !presented[s.id])
+    .forEach(s => { used += shipmentValue_(s); });
+  return round2_(used);
+}
+
+/** عرض محسوب لكل اعتماد */
+function lcViews_(lcs, shipments, orders) {
+  const today = todayText_();
+  const ordersById = {};
+  orders.forEach(o => { ordersById[o.id] = o; });
+  return lcs.map(l => {
+    const e = lcEffective_(l);
+    const limit = round2_(e.amount * (1 + (Number(l.tolerance) || 0) / 100));
+    const used = lcUsed_(l, shipments, ordersById, '');
+    const linked = shipments.filter(s => s.lcId === l.id).map(s => ({
+      id: s.id, requestCode: s.requestCode, serial: s.serial, invoiceNo: s.invoiceNo, poNo: s.poNo,
+      shipDate: s.shipDate, readyDate: s.readyDate, status: s.status, totalQty: s.totalQty,
+      totalContainers: s.totalContainers, value: shipmentValue_(s)
+    }));
+    // السداد بالتاريخ: المقبولة اللي حلّ تاريخ استحقاقها = مسددة، اللي لسه = غير مستحقة (آجل)
+    const t = { paid: 0, due: 0, notDue: 0, pending: 0, committed: 0 };
+    const pres = (l.presentations || []).map(p => {
+      const amount = Number(p.amount) || 0;
+      let bucket = 'مرفوضة', remaining = 0;
+      if (p.status !== 'مرفوضة') {
+        if (p.status !== 'مقبولة') { bucket = 'بانتظار قبول البنك'; remaining = amount; t.pending += amount; }
+        else if (p.dueDate && p.dueDate > today) { bucket = 'غير مستحقة'; remaining = amount; t.notDue += amount; }
+        else { bucket = 'مسددة'; t.paid += amount; }
+      }
+      return Object.assign({}, p, {
+        remaining: round2_(remaining), bucket: bucket, paid: bucket === 'مسددة',
+        daysLeft: p.dueDate ? daysBetweenText_(today, p.dueDate) : null
+      });
+    });
+    const presented = {};
+    pres.filter(p => p.status !== 'مرفوضة' && p.shipmentId).forEach(p => { presented[p.shipmentId] = true; });
+    linked.filter(s => s.status === SHIPPED && !presented[s.id]).forEach(s => { t.committed += s.value; });
+    const unpaid = pres.filter(p => p.status !== 'مرفوضة' && p.remaining > 0.005);
+    const paid = t.paid;
+    const schedule = unpaid.filter(p => p.dueDate).sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+      .map(p => ({ invoiceNo: p.invoiceNo, serial: p.serial, dueDate: p.dueDate, amount: p.remaining, daysLeft: p.daysLeft, bucket: p.bucket }));
+    let state = lcState_(l, today);
+    if (state === 'مفتوح' && limit - used <= 0.005) state = 'مستخدم بالكامل';
+    return Object.assign({}, l, {
+      effAmount: e.amount, effExpiry: e.expiry, effLatestShip: e.latest, limit: limit,
+      used: used, available: round2_(limit - used), paid: round2_(paid),
+      due: round2_(t.due), notDue: round2_(t.notDue), pendingAccept: round2_(t.pending), committed: round2_(t.committed),
+      balanceBefore: round2_(limit - paid), schedule: schedule,
+      charges: l.charges || [], chargesTotal: round2_((l.charges || []).reduce((t, c) => t + (Number(c.amount) || 0), 0)),
+      presentations: pres, unpaid: unpaid.length,
+      nextDue: schedule.length ? schedule[0].dueDate : '',
+      daysToExpiry: e.expiry ? daysBetweenText_(today, e.expiry) : null,
+      daysToLatestShip: e.latest ? daysBetweenText_(today, e.latest) : null,
+      shipments: linked, state: state
+    });
+  });
+}
+
+/** شرط تعميد الشحن لأوامر L/C: اعتماد صالح ورصيد كافي */
+function checkLcForShipment_(s, allShipments) {
+  const orders = readAll_('orders');
+  const po = orders.find(o => o.id === s.poId);
+  const needs = po && po.payMethod === 'L/C';
+  if (!s.lcId) {
+    if (needs) throw new Error('أمر الشراء ' + s.poNo + ' طريقة دفعه L/C: اختر الاعتماد البنكي للشحنة قبل التعميد');
+    return;
+  }
+  const lc = readAll_('lcs').find(l => l.id === s.lcId);
+  if (!lc) throw new Error('الاعتماد البنكي المرتبط بالشحنة غير موجود');
+  const today = todayText_();
+  const e = lcEffective_(lc);
+  if (lc.status === 'مقفل') throw new Error('الاعتماد ' + lc.lcNo + ' مقفل');
+  if (!(lc.pos || []).some(p => p.poId === s.poId)) throw new Error('الاعتماد ' + lc.lcNo + ' لا يغطي أمر الشراء ' + s.poNo);
+  if (e.expiry && e.expiry < today) throw new Error('الاعتماد ' + lc.lcNo + ' منتهي الصلاحية (' + e.expiry + ') — يحتاج تعديل تمديد');
+  if (e.latest && s.shipDate > e.latest) throw new Error('تاريخ الشحن ' + s.shipDate + ' بعد آخر موعد شحن في الاعتماد ' + lc.lcNo + ' (' + e.latest + ') — يحتاج تعديل');
+  if (e.expiry && s.shipDate > e.expiry) throw new Error('تاريخ الشحن بعد صلاحية الاعتماد ' + lc.lcNo);
+  const ordersById = {};
+  orders.forEach(o => { ordersById[o.id] = o; });
+  const limit = e.amount * (1 + (Number(lc.tolerance) || 0) / 100);
+  const avail = round2_(limit - lcUsed_(lc, allShipments, ordersById, s.id));
+  const value = shipmentValue_(s);
+  if (!(value > 0)) throw new Error('سجّل «قيمة الفاتورة» للشحنة قبل التعميد — تنخصم من رصيد الاعتماد ' + lc.lcNo);
+  if (value > avail + 0.005) {
+    throw new Error('قيمة الشحنة ' + value + ' ' + lc.currency + ' أكبر من رصيد الاعتماد ' + lc.lcNo + ' المتاح (' + avail + ') — يحتاج تعديل زيادة مبلغ');
+  }
+}
+
+/** يقيّد الاعتمادات بالأقسام: يظهر الاعتماد لو أحد أوامره من قسم الموظف (أو ما له أوامر) */
+function lcAllowed_(user, l, ordersById) {
+  const pos = l.pos || [];
+  return !pos.length || pos.some(p => ordersById[p.poId] && deptAllowed_(user, ordersById[p.poId].department));
+}
+
+function listLcs_(data) {
+  const user = requireUser_(data.token);
+  requirePage_(user, 'lcs', 'view');
+  const orders = readAll_('orders');
+  const ordersById = {};
+  orders.forEach(o => { ordersById[o.id] = o; });
+  const lcsRaw = readAll_('lcs');
+  const views = lcViews_(lcsRaw, readAll_('shipments'), orders)
+    .filter(l => lcAllowed_(user, l, ordersById))
+    .sort((a, b) => (a.state === 'مقفل') - (b.state === 'مقفل') || String(b.issueDate).localeCompare(String(a.issueDate)));
+
+  // أوامر الشراء المعتمدة مع مقدار تغطيتها بالاعتمادات
+  const covered = {};
+  lcsRaw.forEach(l => (l.pos || []).forEach(p => { (covered[p.poId] = covered[p.poId] || []).push(l.lcNo); }));
+  const poOptions = orders.filter(o => o.status === 'معتمد' && deptAllowed_(user, o.department))
+    .map(o => ({ id: o.id, poNo: o.poNo, supplier: o.supplier, currency: o.currency, payMethod: o.payMethod, incoterm: cleanIncoterm_(o.incoterm),
+                 totalQty: Number(o.totalQty) || 0, otherLcs: covered[o.id] || [], department: o.department }))
+    .sort((a, b) => (b.payMethod === 'L/C') - (a.payMethod === 'L/C') || String(a.poNo).localeCompare(String(b.poNo)));
+  return { success: true, lcs: views, poOptions: poOptions, today: todayText_() };
+}
+
+function saveLc_(data) {
+  const user = requireUser_(data.token);
+  requirePage_(user, 'lcs', 'edit');
+  const input = data.lc || {};
+  const text = (v, max) => String(v == null ? '' : v).trim().slice(0, max || 200);
+  const date = (v, label, required) => {
+    v = text(v, 10);
+    if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) throw new Error(label + ' غير صحيح');
+    if (!v && required) throw new Error('حدد ' + label);
+    return v;
+  };
+  const amt = v => round2_(String(v == null ? '' : v).replace(/,/g, ''));
+
+  const lc = {
+    lcNo: text(input.lcNo, 60),
+    bank: text(input.bank, 100),
+    supplier: text(input.supplier, 150),
+    currency: text(input.currency, 5) || 'USD',
+    amount: amt(input.amount),
+    tolerance: Math.max(0, Math.min(20, Number(input.tolerance) || 0)),
+    payType: LC_PAY_TYPES.indexOf(input.payType) >= 0 ? input.payType : 'اطلاع',
+    incoterm: cleanIncoterm_(input.incoterm),
+    usanceDays: Math.max(0, Math.round(Number(input.usanceDays) || 0)),
+    usanceFrom: ['الشحن', 'القبول', 'التقديم'].indexOf(input.usanceFrom) >= 0 ? input.usanceFrom : 'الشحن',
+    issueDate: date(input.issueDate, 'تاريخ الفتح', true),
+    expiryDate: date(input.expiryDate, 'تاريخ انتهاء الصلاحية', true),
+    latestShipDate: date(input.latestShipDate, 'آخر موعد للشحن', true),
+    presentationDays: Math.max(0, Math.round(Number(input.presentationDays) || 21)),
+    partial: input.partial === 'غير مسموح' ? 'غير مسموح' : 'مسموح',
+    notes: text(input.notes, 500)
+  };
+  if (!lc.lcNo) throw new Error('أدخل رقم الاعتماد');
+  if (!lc.bank) throw new Error('أدخل اسم البنك');
+  if (!(lc.amount > 0)) throw new Error('أدخل مبلغ الاعتماد');
+  if (!lc.incoterm) throw new Error('اختر شرط التسليم (Incoterm)');
+  if (lc.payType === 'آجل' && !lc.usanceDays) throw new Error('حدد عدد أيام الدفع الآجل');
+  if (lc.payType === 'اطلاع') lc.usanceDays = 0;
+  if (lc.expiryDate < lc.issueDate) throw new Error('تاريخ الانتهاء قبل تاريخ الفتح');
+  if (lc.latestShipDate > lc.expiryDate) throw new Error('آخر موعد للشحن بعد صلاحية الاعتماد');
+
+  // التعديلات
+  lc.amendments = (Array.isArray(input.amendments) ? input.amendments : [])
+    .map(a => ({ date: date(a.date, 'تاريخ التعديل'), desc: text(a.desc, 200), amountDelta: amt(a.amountDelta),
+                 newExpiry: date(a.newExpiry, 'الصلاحية الجديدة'), newLatestShip: date(a.newLatestShip, 'آخر شحن جديد') }))
+    .filter(a => a.date || a.desc || a.amountDelta || a.newExpiry || a.newLatestShip);
+  lc.amendments.forEach((a, i) => {
+    a.no = i + 1;
+    if (!a.date) throw new Error('التعديل ' + a.no + ': حدد التاريخ');
+  });
+  const e = lcEffective_(lc);
+  if (!(e.amount > 0)) throw new Error('مبلغ الاعتماد بعد التعديلات لازم يكون أكبر من صفر');
+  if (e.latest > e.expiry) throw new Error('آخر موعد للشحن (بعد التعديلات) بعد صلاحية الاعتماد');
+
+  // المصاريف البنكية
+  lc.charges = (Array.isArray(input.charges) ? input.charges : [])
+    .map(c => ({ date: date(c.date, 'تاريخ المصروف'), desc: text(c.desc, 150), amount: amt(c.amount), currency: text(c.currency, 5) || 'SAR' }))
+    .filter(c => c.desc || c.amount);
+  lc.charges.forEach((c, i) => { if (!c.desc) throw new Error('المصروف ' + (i + 1) + ': أدخل الوصف'); });
+
+  return withLock_(() => {
+    const all = readAll_('lcs');
+    const existing = input.id ? all.find(l => l.id === String(input.id)) : null;
+    if (input.id && !existing) throw new Error('الاعتماد غير موجود، ربما حذفه شخص آخر');
+    if (existing && existing.status === 'مقفل') throw new Error('الاعتماد مقفل؛ أعد فتحه أولًا');
+    if (all.some(l => l.lcNo.toLowerCase() === lc.lcNo.toLowerCase() && l.id !== String(input.id || ''))) {
+      throw new Error('رقم الاعتماد ' + lc.lcNo + ' مستخدم مسبقًا');
+    }
+
+    const orders = readAll_('orders');
+    const ordersById = {};
+    orders.forEach(o => { ordersById[o.id] = o; });
+    const shipments = readAll_('shipments');
+
+    // تخصيص أوامر الشراء
+    const seen = {};
+    lc.pos = (Array.isArray(input.pos) ? input.pos : []).filter(p => p && p.poId).map(p => {
+      const o = ordersById[String(p.poId)];
+      if (!o) throw new Error('أمر شراء غير موجود في الاعتماد');
+      if (seen[o.id]) throw new Error('أمر الشراء ' + o.poNo + ' مكرر في الاعتماد');
+      seen[o.id] = true;
+      if (!deptAllowed_(user, o.department)) throw new Error('أمر الشراء ' + o.poNo + ' يخص قسمًا آخر');
+      if (o.currency !== lc.currency) throw new Error('عملة أمر الشراء ' + o.poNo + ' (' + o.currency + ') تختلف عن عملة الاعتماد');
+      return { poId: o.id, poNo: o.poNo };
+    });
+    if (!lc.pos.length) throw new Error('اربط الاعتماد بأمر شراء واحد على الأقل');
+    if (existing) {
+      const linked = shipments.filter(s => s.lcId === existing.id);
+      const lost = linked.find(s => !seen[s.poId]);
+      if (lost) throw new Error('لا يمكن إزالة أمر الشراء ' + lost.poNo + ': عليه شحنة مربوطة بهذا الاعتماد');
+    }
+
+    // تقديم المستندات للبنك
+    const linkedById = {};
+    shipments.filter(s => existing && s.lcId === existing.id).forEach(s => { linkedById[s.id] = s; });
+    lc.presentations = (Array.isArray(input.presentations) ? input.presentations : []).map((p, i) => {
+      const label = 'التقديم ' + (i + 1) + ': ';
+      const s = p.shipmentId ? linkedById[String(p.shipmentId)] : null;
+      if (p.shipmentId && !s) throw new Error(label + 'الشحنة غير مربوطة بهذا الاعتماد');
+      if (s && s.status !== SHIPPED) throw new Error(label + 'الشحنة ' + s.requestCode + ' غير معمّدة بعد');
+      const r = {
+        id: text(p.id, 60) || Utilities.getUuid(),
+        shipmentId: s ? s.id : '', serial: s ? s.serial : '', invoiceNo: s ? s.invoiceNo : text(p.invoiceNo, 60),
+        presentedDate: date(p.presentedDate, 'تاريخ التقديم', true),
+        amount: amt(p.amount),
+        discrepancies: text(p.discrepancies, 500),
+        status: LC_PRES_STATES.indexOf(p.status) >= 0 ? p.status : 'مقدمة',
+        acceptedDate: date(p.acceptedDate, 'تاريخ القبول'),
+        dueDate: date(p.dueDate, 'تاريخ الاستحقاق'),
+        paidDate: '', paidAmount: ''
+      };
+      if (!(r.amount > 0)) throw new Error(label + 'أدخل مبلغ المستندات');
+      if (r.discrepancies && r.status === 'مقدمة') r.status = 'بها ملاحظات';
+      if (r.status === 'مقبولة' && !r.acceptedDate) r.acceptedDate = r.presentedDate;
+      // الاستحقاق: اطلاع = عند القبول، آجل = تاريخ الشحن (البوليصة) + أيام الآجل
+      // آجل: تاريخ البداية حسب شرط الاعتماد (الشحن/البوليصة، القبول، أو التقديم) + أيام الآجل (30 / 60 / 90 …)
+      if (!r.dueDate && r.status === 'مقبولة') {
+        const base = lc.usanceFrom === 'القبول' ? r.acceptedDate
+          : lc.usanceFrom === 'التقديم' ? r.presentedDate
+          : ((s && s.shipDate) || r.presentedDate);
+        r.dueDate = lc.payType === 'آجل' ? addDaysText_(base, lc.usanceDays) : r.acceptedDate;
+      }
+      if (s && s.shipDate && e.latest && s.shipDate > e.latest && !r.discrepancies) {
+        r.discrepancies = 'شحن متأخر عن آخر موعد في الاعتماد';
+      }
+      return r;
+    });
+    const dupShip = {};
+    lc.presentations.filter(p => p.shipmentId && p.status !== 'مرفوضة').forEach(p => {
+      if (dupShip[p.shipmentId]) throw new Error('الشحنة ' + p.invoiceNo + ' لها أكثر من تقديم ساري');
+      dupShip[p.shipmentId] = true;
+    });
+
+    const now = nowText_();
+    if (existing) {
+      Object.assign(lc, { id: existing.id, status: existing.status || 'مفتوح', createdBy: existing.createdBy, createdAt: existing.createdAt,
+                          closedBy: existing.closedBy, closedAt: existing.closedAt });
+    } else {
+      Object.assign(lc, { id: Utilities.getUuid(), status: 'مفتوح', createdBy: user.username, createdAt: now, closedBy: '', closedAt: '' });
+    }
+    // ما يتجاوز المستخدم المبلغ
+    const used = lcUsed_(lc, shipments, ordersById, '');
+    if (used > e.amount * (1 + lc.tolerance / 100) + 0.005) {
+      throw new Error('المستخدم من الاعتماد (' + used + ') أكبر من مبلغه بعد التعديلات');
+    }
+    lc.updatedBy = user.username;
+    lc.updatedAt = now;
+    writeRecord_('lcs', lc);
+    const view = lcViews_([lc], shipments, orders)[0];
+    return { success: true, lc: view, message: existing ? 'تم حفظ الاعتماد ' + lc.lcNo : 'تم فتح الاعتماد ' + lc.lcNo };
+  });
+}
+
+function closeLc_(data) {
+  const user = requireUser_(data.token);
+  requirePage_(user, 'lcs', 'full');
+  return withLock_(() => {
+    const lc = readAll_('lcs').find(l => l.id === String(data.id));
+    if (!lc) throw new Error('الاعتماد غير موجود');
+    if (lc.status === 'مقفل') throw new Error('الاعتماد مقفل مسبقًا');
+    const today = todayText_();
+    const open = (lc.presentations || []).filter(p => p.status !== 'مرفوضة' &&
+      !(p.status === 'مقبولة' && p.dueDate && p.dueDate <= today));
+    if (open.length) throw new Error('لا يمكن إقفال الاعتماد: فيه ' + open.length + ' تقديم مستندات لم يحلّ تاريخ استحقاقه أو لم يقبله البنك');
+    const presented = {};
+    (lc.presentations || []).filter(p => p.status !== 'مرفوضة').forEach(p => { presented[p.shipmentId] = true; });
+    const notPresented = readAll_('shipments').filter(x => x.lcId === lc.id && x.status === SHIPPED && !presented[x.id]);
+    if (notPresented.length) {
+      throw new Error('لا يمكن إقفال الاعتماد: شحنات معمّدة عليه لم تُقدَّم مستنداتها (' + notPresented.map(x => x.invoiceNo).join('، ') + ')');
+    }
+    const now = nowText_();
+    Object.assign(lc, { status: 'مقفل', closedBy: user.username, closedAt: now, updatedBy: user.username, updatedAt: now });
+    writeRecord_('lcs', lc);
+    return { success: true, message: 'تم إقفال الاعتماد ' + lc.lcNo };
+  });
+}
+
+function reopenLc_(data) {
+  const user = requireUser_(data.token);
+  requirePage_(user, 'lcs', 'full');
+  return withLock_(() => {
+    const lc = readAll_('lcs').find(l => l.id === String(data.id));
+    if (!lc) throw new Error('الاعتماد غير موجود');
+    Object.assign(lc, { status: 'مفتوح', closedBy: '', closedAt: '', updatedBy: user.username, updatedAt: nowText_() });
+    writeRecord_('lcs', lc);
+    return { success: true, message: 'أُعيد فتح الاعتماد ' + lc.lcNo };
+  });
+}
+
+function deleteLc_(data) {
+  const user = requireUser_(data.token);
+  requirePage_(user, 'lcs', 'full');
+  return withLock_(() => {
+    const lc = readAll_('lcs').find(l => l.id === String(data.id));
+    if (!lc) throw new Error('الاعتماد غير موجود');
+    if (readAll_('shipments').some(s => s.lcId === lc.id)) throw new Error('لا يمكن حذف الاعتماد: عليه شحنات مربوطة');
+    if ((lc.presentations || []).length) throw new Error('لا يمكن حذف الاعتماد: عليه مستندات مقدمة');
+    tableSheet_('lcs').deleteRow(findRow_('lcs', lc.id));
+    return { success: true, message: 'تم حذف الاعتماد ' + lc.lcNo };
+  });
+}
+
+/** تنبيهات الاعتمادات للوحة الإدارة */
+function lcAlerts_(user, pending, add) {
+  const orders = readAll_('orders');
+  const ordersById = {};
+  orders.forEach(o => { ordersById[o.id] = o; });
+  const today = todayText_();
+  const views = lcViews_(readAll_('lcs'), readAll_('shipments'), orders).filter(l => lcAllowed_(user, l, ordersById));
+  const open = views.filter(l => l.state === 'مفتوح' || l.state === 'مستخدم بالكامل');
+  const pres = [];
+  views.forEach(l => l.presentations.forEach(p => pres.push(p)));
+  add('bad', views.filter(l => l.state === 'منتهي' && l.available > 0.005).length, 'اعتماد بنكي منتهي وفيه رصيد', 'lcs');
+  add('wait', open.filter(l => l.daysToExpiry != null && l.daysToExpiry <= 15).length, 'اعتماد بنكي تنتهي صلاحيته خلال 15 يوم', 'lcs');
+  add('wait', open.filter(l => l.available > 0.005 && l.daysToLatestShip != null && l.daysToLatestShip >= 0 && l.daysToLatestShip <= 15).length,
+    'اعتماد بنكي آخر موعد شحن فيه خلال 15 يوم', 'lcs');
+  add('bad', pres.filter(p => p.status === 'بها ملاحظات').length, 'تقديم مستندات للبنك عليه ملاحظات (Discrepancies)', 'lcs');
+  add('wait', pres.filter(p => p.bucket === 'غير مستحقة' && daysBetweenText_(today, p.dueDate) <= 7).length,
+    'دفعة اعتماد تُسدد خلال 7 أيام (حسب تاريخ الاستحقاق)', 'lcs');
+  const lcPo = {};
+  orders.forEach(o => { if (o.payMethod === 'L/C') lcPo[o.id] = true; });
+  add('bad', pending.filter(s => lcPo[s.poId] && s.state === 'جاهزة للشحن' && !s.lcId).length,
+    'طلب شحن L/C جاهز بدون اعتماد بنكي', 'shipments');
+  return views;
+}
+
+/** ملخص الاعتمادات لتقرير الإدارة العليا */
+function lcReport_(user) {
+  const orders = readAll_('orders');
+  const ordersById = {};
+  orders.forEach(o => { ordersById[o.id] = o; });
+  const views = lcViews_(readAll_('lcs'), readAll_('shipments'), orders)
+    .filter(l => l.state !== 'مقفل' && lcAllowed_(user, l, ordersById))
+    .sort((a, b) => String(a.effExpiry).localeCompare(String(b.effExpiry)));
+  return views.map(l => ({
+    lcNo: l.lcNo, bank: l.bank, supplier: l.supplier, currency: l.currency, payType: l.payType, incoterm: l.incoterm || '',
+    pos: (l.pos || []).map(p => p.poNo).join('، '), amount: l.effAmount, used: l.used, available: l.available,
+    paid: l.paid, due: l.due, notDue: l.notDue, latestShip: l.effLatestShip, expiry: l.effExpiry, daysToExpiry: l.daysToExpiry,
+    nextDue: l.nextDue, state: l.state
+  }));
 }
 
 function todayText_() {
@@ -1912,6 +2394,7 @@ function onOpen() {
     .addItem('2) إنشاء حساب المدير الأول', 'menuCreateAdmin')
     .addSeparator()
     .addItem('اختبار تسجيل الدخول', 'menuTestLogin')
+    .addItem('مسح أسعار الوحدات القديمة من أوامر الشراء', 'menuClearPrices')
     .addToUi();
 }
 
@@ -1919,6 +2402,18 @@ function menuSetup() {
   secret_();
   Object.keys(TABLES).forEach(k => header_(k));
   SpreadsheetApp.getUi().alert('✅ تم تجهيز قاعدة البيانات');
+}
+
+/** يمسح سعر الوحدة من بنود كل أوامر الشراء وقيمة الأمر (مرة وحدة) */
+function menuClearPrices() {
+  if (ask_('مسح أسعار الوحدات وقيمة الأمر من كل أوامر الشراء؟ (اكتب نعم)') !== 'نعم') return;
+  const orders = readAll_('orders');
+  orders.forEach(o => {
+    o.items = (o.items || []).map(i => { const c = Object.assign({}, i); delete c.price; return c; });
+    o.totalValue = '';
+  });
+  writeMany_('orders', orders);
+  SpreadsheetApp.getUi().alert('✅ تم مسح الأسعار من ' + orders.length + ' أمر شراء');
 }
 
 function menuCreateAdmin() {
