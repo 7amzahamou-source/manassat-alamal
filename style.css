@@ -732,3 +732,18 @@ table.ns-table { min-width: 0; }
   .ns-bar { gap: 12px; width: 100%; justify-content: space-between; }
   .ns-foot .btn.primary { width: 100%; }
 }
+
+/* إصلاح: الجدول يلتزم بعرض النافذة مهما طال وصف الموديل */
+table.items.ns-table { table-layout: fixed; width: 100%; min-width: 0; }
+table.items.ns-table th:nth-child(1) { width: auto; }
+table.items.ns-table th:nth-child(2) { width: 150px; }
+table.items.ns-table th:nth-child(3) { width: 220px; }
+table.items.ns-table th:nth-child(4) { width: 120px; }
+table.items.ns-table td { overflow-wrap: anywhere; word-break: break-word; }
+table.items.ns-table .m-cell small { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+table.items.ns-table input { min-width: 0; width: 100%; }
+table.items.ns-table .q-cell .btn { flex: none; padding-inline: 10px; }
+#newShipDialog .table-wrap { overflow-x: hidden; }
+@media (max-width: 720px) {
+  table.items.ns-table { table-layout: auto; }
+}
