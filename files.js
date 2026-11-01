@@ -147,6 +147,8 @@
         <td id="declTag${i}"></td>
       </tr>`).join('') : '<tr><td colspan="5" class="empty">ما فيه بيانات بعد. سجّل رقم البيان على الحاويات من «متابعة الحاويات».</td></tr>';
     $('fdGoodsOrig').value = money(f.goodsValue, f.currency);
+    $('fdGoodsOrig').title = f.missingValue ? f.missingValue + ' فاتورة بدون قيمة — سجّلها من «بيانات الشحن»' : '';
+    if (f.missingValue) $('fdGoodsOrig').value += '  ⚠️ ناقص ' + f.missingValue;
     document.querySelectorAll('#fdDocs [data-doc]').forEach(el => { el.checked = !!(f.docs || {})[el.dataset.doc]; });
     document.querySelectorAll('#fdCosts [data-cost]').forEach(el => { el.value = (f.costs || {})[el.dataset.cost] ?? ''; });
 
@@ -199,16 +201,14 @@
       if (cell) cell.innerHTML = d.release ? '<span class="tag ok">مفسوح</span>' : d.date ? '<span class="tag wait">تحت التخليص</span>' : '<span class="tag gray">بانتظار التاريخ</span>';
     });
 
-    // توزيع المصاريف على الموديلات حسب القيمة (أو الكمية إذا ما فيه أسعار)
-    const totalVal = current.lines.reduce((t, l) => t + l.value, 0);
+    // بدون أسعار وحدات: قيمة الفاتورة والمصاريف تتوزع على الموديلات حسب الكمية
     const totalQty = current.lines.reduce((t, l) => t + l.qty, 0);
     $('fdUnits').innerHTML = current.lines.map(l => {
-      const share = totalVal ? l.value / totalVal : (totalQty ? l.qty / totalQty : 0);
-      const goods = l.value * c.rate;
+      const share = totalQty ? l.qty / totalQty : 0;
+      const goods = c.goods * share;
       const exp = c.expenses * share;
       return `<tr>
         <td><b dir="ltr">${esc(l.model)}</b></td><td>${esc(l.poNo)}</td><td class="num">${num(l.qty)}</td>
-        <td class="num">${l.price ? money(l.price, current.currency) : '—'}</td>
         <td class="num">${money(goods)}</td><td class="num">${money(exp)}</td>
         <td class="num"><b>${l.qty ? money((goods + exp) / l.qty) : '—'}</b></td>
       </tr>`;

@@ -4,7 +4,7 @@
  */
 (function () {
   const SHIPPED = 'تم الشحن';
-  const SD_FIELDS = ['invoiceNo', 'approvalNo', 'readyDate', 'forwarder', 'shipDate', 'eta', 'arrivalPort',
+  const SD_FIELDS = ['invoiceNo', 'invoiceValue', 'approvalNo', 'readyDate', 'forwarder', 'shipDate', 'eta', 'arrivalPort',
     'broker', 'freight', 'freightCurrency', 'inspection', 'inspectionNote', 'freeDays', 'notes'];
 
   let pending = [];      // طلبات الشحن
@@ -123,7 +123,7 @@
     }
     $('shBody').innerHTML = list.map(s => `
       <tr data-id="${esc(s.id)}">
-        <td><b class="code" dir="ltr">${esc(s.requestCode)}</b><small>فاتورة <span dir="ltr">${esc(s.invoiceNo)}</span></small></td>
+        <td><b class="code" dir="ltr">${esc(s.requestCode)}</b><small>فاتورة <span dir="ltr">${esc(s.invoiceNo)}</span>${Number(s.invoiceValue) ? ' · ' + money(s.invoiceValue) : ''}</small></td>
         <td><b dir="ltr">${esc(s.poNo)}</b><small class="clip" title="${esc(s.supplier)}">${esc(s.supplier)}</small></td>
         <td>${modelChips(s)}</td>
         <td><b class="num">${num(s.totalQty)}</b><small>${num(s.totalContainers) ? num(s.totalContainers) + ' حاوية' : 'بدون حاويات'}</small></td>
@@ -173,7 +173,7 @@
       const arriving = s.eta && s.eta >= t;
       return `
       <tr data-id="${esc(s.id)}">
-        <td><b class="serial">${esc(s.serial)}</b><small>فاتورة <span dir="ltr">${esc(s.invoiceNo)}</span></small></td>
+        <td><b class="serial">${esc(s.serial)}</b><small>فاتورة <span dir="ltr">${esc(s.invoiceNo)}</span>${Number(s.invoiceValue) ? ' · ' + money(s.invoiceValue) : ''}</small></td>
         <td><b dir="ltr">${esc(s.poNo)}</b><small class="clip" title="${esc(s.supplier)}">${esc(s.supplier)}</small></td>
         <td>${modelChips(s)}</td>
         <td><b class="num">${num(s.totalQty)}</b><small>${num(s.containerRows || s.totalContainers) || '—'} حاوية · مستلمة ${num(s.receivedContainers)}</small></td>
@@ -241,6 +241,7 @@
     ].join('');
     $('nsPoChips').classList.remove('hide');
 
+    $('nsCur').textContent = po.currency ? '(' + po.currency + ')' : '';
     // الموانئ: موانئ الأمر أولًا، وإذا ميناء واحد يتعبّى تلقائيًا
     const all = [...$('portsList').options].map(o => o.value);
     $('nsPortsList').innerHTML = [...new Set((po.ports || []).concat(all))].map(p => `<option value="${esc(p)}">`).join('');
@@ -362,21 +363,19 @@
   }
 
   function nsTotals() {
-    let qty = 0, cnt = 0, val = 0, models = 0;
+    let qty = 0, cnt = 0, models = 0;
     const over = [];
     lines.forEach((l, n) => {
       const q = Number(l.qty) || 0;
-      if (q > 0) { models++; qty += q; cnt += Number(l.containers) || 0; val += q * (Number(l.price) || 0); }
+      if (q > 0) { models++; qty += q; cnt += Number(l.containers) || 0; }
       const bad = q > l.available;
       if (bad) over.push(l.model);
       const el = $('nsq' + n);
       if (el) el.classList.toggle('over', bad);
     });
-    const po = poOptions.find(o => o.id === $('ns_po').value);
     $('nsModels').textContent = num(models);
     $('nsQty').textContent = num(qty);
     $('nsCnt').textContent = num(cnt);
-    $('nsVal').textContent = val ? money(val, po ? po.currency : '') : '—';
     $('nsError').textContent = over.length ? 'الكمية أكبر من المتاح: ' + over.join('، ') : '';
   }
 
@@ -391,6 +390,7 @@
       readyDate: $('ns_ready').value,
       notes: $('ns_notes').value,
       lcId: $('ns_lc').value,
+      invoiceValue: $('ns_invoiceValue').value,
       lines: lines.filter(l => Number(l.qty) > 0).map(l => ({ model: l.model, qty: l.qty, containers: l.containers }))
     };
     if (!payload.lines.length) { $('nsError').textContent = 'حدد كمية لموديل واحد على الأقل.'; return; }
@@ -429,6 +429,7 @@
 
     SD_FIELDS.forEach(f => { $('sd_' + f).value = s[f] ?? ''; });
     if (!s.freight) $('sd_freight').value = '';
+    if (!Number(s.invoiceValue)) $('sd_invoiceValue').value = '';
     const lcs = (s.lcChoices || []).slice();
     if (s.lcId && !lcs.some(l => l.id === s.lcId)) lcs.unshift({ id: s.lcId, lcNo: s.lcNo || 'اعتماد مقفل', bank: '' });
     $('sdLcWrap').classList.toggle('hide', !lcs.length && s.payMethod !== 'L/C');

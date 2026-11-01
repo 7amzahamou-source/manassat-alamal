@@ -137,13 +137,13 @@
   async function load() {
     orders = [];
     $('stats').innerHTML = '';
-    $('ordersBody').innerHTML = '<tr><td colspan="10" class="empty">جارٍ تحميل الأوامر…</td></tr>';
+    $('ordersBody').innerHTML = '<tr><td colspan="9" class="empty">جارٍ تحميل الأوامر…</td></tr>';
     try {
       const result = await API.listOrders();
       orders = result.orders || [];
       render();
     } catch (err) {
-      $('ordersBody').innerHTML = `<tr><td colspan="10" class="empty">${esc(err.message)}</td></tr>`;
+      $('ordersBody').innerHTML = `<tr><td colspan="9" class="empty">${esc(err.message)}</td></tr>`;
     }
   }
 
@@ -170,7 +170,7 @@
     if (!list.length) {
       const msg = orders.length ? 'لا توجد أوامر مطابقة للبحث.'
         : can('orders', 'edit') ? 'لا توجد أوامر بعد. اضغط «أمر شراء جديد» لإضافة أول أمر.' : 'لا توجد أوامر بعد.';
-      $('ordersBody').innerHTML = `<tr><td colspan="10" class="empty">${msg}</td></tr>`;
+      $('ordersBody').innerHTML = `<tr><td colspan="9" class="empty">${msg}</td></tr>`;
       return;
     }
 
@@ -183,7 +183,6 @@
         <td class="num">${(o.items || []).length}</td>
         <td class="num">${num(o.totalQty)}</td>
         <td class="num">${num(containersOf(o)) || '—'}</td>
-        <td class="num">${o.totalValue ? money(o.totalValue, o.currency) : '—'}</td>
         <td>${shipProgress(o)}</td>
         <td>${statusTag(o.status)}</td>
       </tr>`).join('');
@@ -226,12 +225,11 @@
 
     // الاعتمادات البنكية المرتبطة بالأمر
     const lcs = o.lcs || [];
-    const covered = lcs.reduce((t, l) => t + (Number(l.amount) || 0), 0);
     $('odLcs').classList.toggle('hide', !order || (!lcs.length && o.payMethod !== 'L/C'));
     $('odLcs').innerHTML = !order ? '' : `<h3 class="fh">الاعتمادات البنكية</h3>` + (lcs.length
-      ? `<div class="table-wrap"><table class="items"><thead><tr><th>رقم الاعتماد</th><th>البنك</th><th>المخصص لهذا الأمر</th><th>الحالة</th></tr></thead><tbody>` +
-        lcs.map(l => `<tr><td><b dir="ltr">${esc(l.lcNo)}</b></td><td>${esc(l.bank)}</td><td class="num">${money(l.amount, l.currency)}</td><td><span class="tag ${l.state === 'منتهي' ? 'bad' : l.state === 'مقفل' ? 'gray' : 'ok'}">${esc(l.state)}</span></td></tr>`).join('') +
-        `</tbody></table></div><p class="meta">مغطى ${money(covered)} من ${money(o.totalValue, o.currency)} (${o.totalValue ? Math.round(covered / o.totalValue * 100) : 0}%)</p>`
+      ? `<div class="table-wrap"><table class="items"><thead><tr><th>رقم الاعتماد</th><th>البنك</th><th>مبلغ الاعتماد</th><th>الدفع</th><th>الصلاحية</th><th>الحالة</th></tr></thead><tbody>` +
+        lcs.map(l => `<tr><td><b dir="ltr">${esc(l.lcNo)}</b></td><td>${esc(l.bank)}</td><td class="num">${money(l.amount, l.currency)}</td><td>${esc(l.payType || '')}${l.payType === 'آجل' ? ' ' + num(l.usanceDays) + ' يوم' : ''}</td><td>${esc(l.expiry || '—')}</td><td><span class="tag ${l.state === 'منتهي' ? 'bad' : l.state === 'مقفل' ? 'gray' : 'ok'}">${esc(l.state)}</span></td></tr>`).join('') +
+        `</tbody></table></div>`
       : '<p class="warn">طريقة الدفع L/C ولا يوجد اعتماد بنكي مربوط بهذا الأمر بعد — افتحه من صفحة «الاعتمادات البنكية».</p>');
 
     items = (o.items || []).map(i => ({ ...i, _cManual: Number(i.containers) > 0 }));
@@ -249,9 +247,7 @@
         <td><input data-n="${n}" data-f="model" class="w-model" list="modelsList" autocomplete="off" value="${esc(i.model)}"></td>
         <td><input data-n="${n}" data-f="description" id="desc${n}" class="w-desc" value="${esc(i.description)}"></td>
         <td><input data-n="${n}" data-f="qty" type="number" min="0" step="any" value="${esc(i.qty)}"></td>
-        <td><input data-n="${n}" data-f="price" type="number" min="0" step="any" value="${esc(i.price)}"></td>
         <td><input data-n="${n}" data-f="containers" id="cnt${n}" type="number" min="0" step="1" value="${esc(i.containers)}"></td>
-        <td class="num" id="line${n}"></td>
         <td>${readOnly ? '' : `<button type="button" class="btn small danger" data-remove="${n}" aria-label="حذف البند">✕</button>`}</td>
       </tr>`).join('');
     if (readOnly) $('itemsBody').querySelectorAll('input').forEach(el => { el.disabled = true; });
@@ -259,18 +255,13 @@
   }
 
   function calcTotals() {
-    let qty = 0, cnt = 0, val = 0;
-    items.forEach((i, n) => {
-      const line = (Number(i.qty) || 0) * (Number(i.price) || 0);
+    let qty = 0, cnt = 0;
+    items.forEach(i => {
       qty += Number(i.qty) || 0;
       cnt += Number(i.containers) || 0;
-      val += line;
-      const cell = $('line' + n);
-      if (cell) cell.textContent = line ? money(line) : '—';
     });
     $('totQty').textContent = num(qty);
     $('totCnt').textContent = num(cnt);
-    $('totVal').textContent = money(val, $('f_currency').value);
 
     // تنبيه شهادات SASO للموديلات المختارة
     const warn = items.map(i => findModel(i.model)).filter(m => m && certInfo(m).attention)
