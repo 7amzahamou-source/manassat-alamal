@@ -556,13 +556,13 @@
           <div class="page-head">
             <div>
               <h1>استيراد البيانات من Excel</h1>
-              <p class="sub">ارفع ملف «الشحنات + أوامر الشراء» وملف «الاعتمادات البنكية» (واحد أو الاثنين). تطلع لك معاينة ومشاكل قبل أي حفظ. الاستيراد ينفع تعيده: الموجود يتحدّث والجديد ينضاف.</p>
+              <p class="sub">ارفع ملف «الشحنات + أوامر الشراء» وملف «الاعتمادات البنكية» وملف «الحاويات» (واحد أو أكثر). تطلع لك معاينة ومشاكل قبل أي حفظ. الاستيراد ينفع تعيده: الموجود يتحدّث والجديد ينضاف.</p>
             </div>
           </div>
           <div class="card im-drop">
             <label for="imFiles" class="im-pick">
               <b>اختر ملفات Excel (.xlsx)</b>
-              <span class="sub small">تقدر تختار الملفين مع بعض</span>
+              <span class="sub small">تقدر تختار الملفات كلها مع بعض</span>
             </label>
             <input id="imFiles" type="file" accept=".xlsx" multiple>
             <p id="imStatus" class="sub small"></p>
@@ -599,6 +599,7 @@
 
             <div class="card im-sec im-run">
               <label class="chk"><input id="imModels" type="checkbox" checked> أضف الموديلات الجديدة لقاعدة الموديلات</label>
+              <label class="chk"><input id="imAssume" type="checkbox" checked> الحاويات المستلمة بدون «تاريخ إرجاع»: اعتبر الفارغ رجع بتاريخ الاستلام</label>
               <button type="button" id="imRunBtn" class="btn primary">استيراد</button>
               <div id="imLog" class="im-log"></div>
             </div>

@@ -34,6 +34,40 @@
     open: 'Open Date', expiry: 'Expiry Date', amount: 'L/C AMOUNT', currency: 'Currency', received: 'Shipment Received',
     condition: 'Condition', goods: 'Goods Type', origin: 'Origin' };
 
+  const CONT_COLS = { serial: 'مستند', invoice: 'INVOICE NO', dept: 'القسم', broker: 'المخلص', bl: 'رقم البوليصة', hq: '40 HQ',
+    decl: 'رقم البيان الجمركي', shipDate: 'تاريخ الشحن', eta: 'الوصول المتوقع', arrival: 'ميناء الوصول', returned: 'تاريخ ارجاع الحاويات',
+    model: 'الموديل', qty: 'الكمية', seq: 'S/N', containerNo: 'رقم الحاوية', warehouse: 'التوزيع الى مستودع', received: 'تاريخ استلام فعلي',
+    notes: 'ملاحظات', pod: 'POD', eta2: 'ETA',
+    t1: 'Transit 1', e1: 'ETA 1', t2: 'Transit 2', e2: 'ETA 2', t3: 'Transit 3', e3: 'ETA 3', t4: 'Transit 4', e4: 'ETA 4', t5: 'Transit 5', e5: 'ETA 5' };
+  const CN_RE = /^[A-Z]{4}\d{7}$/;
+  const cleanCn = v => txt(v).toUpperCase().replace(/[\s\-\/]/g, '');
+
+  /**
+   * ملف الحاويات فيه صفوف «مقسومة»: خانة فيها سطر جديد قسمت الصف إلى صفين،
+   * والجزء الثاني يبدأ بخانة «مستند» فاضية. نرجّعها صف واحد.
+   */
+  function stitch(rows) {
+    const head = (rows[0] || []).map(h => txt(h).toLowerCase());
+    const ci = head.indexOf('رقم الحاوية'), si = head.indexOf('مستند');
+    const out = [rows[0]];
+    let joined = 0;
+    rows.slice(1).forEach(r => {
+      if (!r || !r.some(v => v != null && txt(v) !== '')) return;
+      const prev = out[out.length - 1];
+      const empty0 = r[si < 0 ? 0 : si] == null || txt(r[si < 0 ? 0 : si]) === '';
+      if (out.length > 1 && empty0 && ci >= 0 && !CN_RE.test(cleanCn(prev[ci]))) {
+        let k = prev.length - 1;
+        while (k > 0 && (prev[k] == null || txt(prev[k]) === '')) k--;
+        const m = prev.slice();
+        if (r[0] != null && txt(r[0]) !== '') m[k] = txt(m[k]) + ' ' + txt(r[0]);
+        for (let i = 1; i < r.length; i++) if (r[i] != null) m[k + i] = r[i];
+        out[out.length - 1] = m;
+        joined++;
+      } else out.push(r);
+    });
+    return { rows: out, joined };
+  }
+
   let parsed = null;       // نتيجة القراءة
   let mapping = {};        // ربط أرقام P/I غير المطابقة: token -> poNo أو ''
   let existing = { orders: [], lcs: [], shipments: [] };
@@ -193,16 +227,17 @@
     mapping = {};
     if (!files.length) return;
     try {
-      const raw = { ship: null, po: null, lc: null, names: [] };
+      const raw = { ship: null, po: null, lc: null, cont: null, names: [] };
       for (const f of files) {
         const book = await readXlsx(f);
-        const s = findSheet(book, 'C/I No'), p = findSheet(book, 'OrderID / PI NO'), l = findSheet(book, 'L/C No.');
+        const s = findSheet(book, 'C/I No'), p = findSheet(book, 'OrderID / PI NO'), l = findSheet(book, 'L/C No.'), c = findSheet(book, 'رقم الحاوية');
         if (s) raw.ship = table(book[s], SHIP_COLS);
         if (p) raw.po = table(book[p], PO_COLS);
         if (l) raw.lc = table(book[l], LC_COLS);
-        raw.names.push(f.name + ' ← ' + [s && 'الشحنات', p && 'أوامر الشراء', l && 'الاعتمادات'].filter(Boolean).join(' + ') || 'ما تعرّفت على أوراقه');
+        if (c) { const st = stitch(book[c]); raw.cont = table(st.rows, CONT_COLS); raw.cont.joined = st.joined; }
+        raw.names.push(f.name + ' ← ' + ([s && 'الشحنات', p && 'أوامر الشراء', l && 'الاعتمادات', c && 'الحاويات'].filter(Boolean).join(' + ') || 'ما تعرّفت على أوراقه'));
       }
-      if (!raw.ship && !raw.po && !raw.lc) throw new Error('ما لقيت أوراق «الشحنات» أو «اوامر الشراء» أو «الاعتمادات البنكية» في الملفات');
+      if (!raw.ship && !raw.po && !raw.lc && !raw.cont) throw new Error('ما لقيت أوراق «الشحنات» أو «اوامر الشراء» أو «الاعتمادات البنكية» أو «الحاويات» في الملفات');
       parsed = raw;
       $('imStatus').innerHTML = raw.names.map(esc).join('<br>');
       build();
@@ -392,14 +427,51 @@
     lcCompare.filter(c => c.over > 0.5).forEach(c => issue('اعتمادات المشحون عليها أكثر من مبلغها', `${c.lcNo}: زيادة ${num(c.over)}`));
 
     Object.values(orders).forEach(o => { o.notes = Array.isArray(o.notes) ? o.notes.join(' — ') : o.notes; });
-    parsed.out = { orders: Object.values(orders), shipments, lcs: Object.values(lcs), issues, unmatched, lcCompare, allPo };
+    // --- الحاويات (ملف «الحاويات»): مجموعة لكل فاتورة ---
+    const contGroups = {};
+    let contCount = 0;
+    if (R.cont) {
+      R.cont.missing.filter(c => !/^(Transit|ETA )/.test(c)).forEach(c => issue('أعمدة ناقصة في ملف الحاويات', c));
+      if (R.cont.joined) issue('صفوف مقسومة في ملف الحاويات (رجّعتها صف واحد تلقائيًا)', `${R.cont.joined} صف`);
+      const knownInv = new Set(shipments.map(s => key(s.invoiceNo)).concat(existing.shipments.map(s => key(s.invoiceNo))));
+      const knownSerial = new Set(shipments.map(s => txt(s.serial)).concat(existing.shipments.map(s => txt(s.serial))).filter(Boolean));
+      R.cont.list.forEach(r => {
+        const inv = txt(r.invoice).replace(/\.0$/, '');
+        const serial = r.serial == null ? '' : String(Math.round(numv(r.serial)) || '');
+        if (!inv && !serial) return;
+        const gk = key(inv) || ('S' + serial);
+        const g = contGroups[gk] = contGroups[gk] || { invoiceNo: inv, serial: serial, rows: [] };
+        if (!g.serial && serial) g.serial = serial;
+        const cn = cleanCn(r.containerNo);
+        if (cn && !CN_RE.test(cn)) issue('أرقام حاويات بصيغة غير معتادة (تنحفظ كما هي)', `${inv}: ${txt(r.containerNo)}`);
+        const declNums = txt(r.decl).match(/\d{4,}/g) || [];
+        if (declNums.length > 1) issue('حاويات عليها أكثر من رقم بيان (ينحفظ الأول)', `${cn || inv}: ${txt(r.decl)}`);
+        const transit = [1, 2, 3, 4, 5].map(i => txt(r['t' + i]) ? `${txt(r['t' + i])}${dateOf(r['e' + i]) ? ' (' + dateOf(r['e' + i]) + ')' : ''}` : '').filter(Boolean).join(' ← ');
+        g.rows.push({
+          containerNo: cn, model: txt(r.model), qty: numv(r.qty), seq: numv(r.seq),
+          eta: dateOf(r.eta2) || dateOf(r.eta), arrivalPort: arrival(r.pod || r.arrival),
+          declarationNo: declNums[0] || '', receivedDate: dateOf(r.received), emptyReturnDate: dateOf(r.returned),
+          warehouse: txt(r.warehouse), bl: txt(r.bl), broker: txt(r.broker),
+          notes: [txt(r.notes), transit ? 'ترانزيت: ' + transit : ''].filter(Boolean).join(' — ')
+        });
+        contCount++;
+      });
+      Object.values(contGroups).forEach(g => {
+        if (!knownInv.has(key(g.invoiceNo)) && !knownSerial.has(g.serial)) issue('فواتير في ملف الحاويات ما لقيتها (لا برقم الفاتورة ولا بالتسلسل) — تُتجاهل', `${g.invoiceNo || '—'} (${g.serial || 'بدون تسلسل'})`);
+        const seen = {};
+        g.rows.forEach(c => { if (c.containerNo) { if (seen[c.containerNo]) issue('حاويات مكررة في نفس الفاتورة (تنحسب مرة)', `${g.invoiceNo}: ${c.containerNo}`); seen[c.containerNo] = 1; } });
+      });
+    }
+
+    parsed.out = { orders: Object.values(orders), shipments, lcs: Object.values(lcs), issues, unmatched, lcCompare, allPo,
+                   containers: Object.values(contGroups), contCount };
     render();
   }
 
   /* ===== المعاينة ===== */
 
   function render() {
-    const { orders, shipments, lcs, issues, unmatched, lcCompare, allPo } = parsed.out;
+    const { orders, shipments, lcs, issues, unmatched, lcCompare, allPo, containers, contCount } = parsed.out;
     const exO = new Set(existing.orders.map(o => key(o.poNo)));
     const exL = new Set(existing.lcs.map(l => String(l.lcNo).toUpperCase()));
     const exS = new Set(existing.shipments.map(s => key(s.poNo) + '|' + key(s.invoiceNo)));
@@ -413,7 +485,8 @@
       tile('البنود', num(orders.reduce((t, o) => t + o.items.length, 0)), `${num(new Set(orders.flatMap(o => o.items.map(i => key(i.model)))).size)} موديل`),
       tile('الفواتير', num(shipments.length), `${num(newS)} جديد · ${num(shipped.length)} مشحونة`),
       tile('الحاويات', num(shipped.reduce((t, s) => t + s.totalContainers, 0)), `${num(shipped.filter(s => s.receivedDate).reduce((t, s) => t + s.totalContainers, 0))} مستلمة`),
-      tile('الاعتمادات', num(lcs.length), `${num(newL)} جديد · ${num(lcs.length - newL)} تحديث`)
+      tile('الاعتمادات', num(lcs.length), `${num(newL)} جديد · ${num(lcs.length - newL)} تحديث`),
+      containers.length ? tile('ملف الحاويات', num(contCount), `${num(containers.length)} فاتورة · ${num(containers.reduce((t, g) => t + g.rows.filter(c => c.containerNo).length, 0))} برقم`) : ''
     ].join('');
 
     // ربط P/I غير المطابقة
@@ -453,8 +526,11 @@
   /* ===== الاستيراد ===== */
 
   async function runImport() {
-    const { orders, shipments, lcs } = parsed.out;
-    if (!confirm(`استيراد ${orders.length} أمر شراء و${lcs.length} اعتماد و${shipments.length} فاتورة؟\nالموجود يتحدّث والجديد ينضاف.`)) return;
+    const { orders, shipments, lcs, containers, contCount } = parsed.out;
+    const parts = [orders.length && orders.length + ' أمر شراء', lcs.length && lcs.length + ' اعتماد', shipments.length && shipments.length + ' فاتورة',
+      contCount && contCount + ' حاوية'].filter(Boolean).join(' و');
+    if (!confirm(`استيراد ${parts}؟\nالموجود يتحدّث والجديد ينضاف.`)) return;
+    const assume = $('imAssume').checked;
     const log = $('imLog');
     const line = (t, cls) => { log.insertAdjacentHTML('beforeend', `<div class="${cls || ''}">${t}</div>`); };
     const done = busy($('imRunBtn'), 'جارٍ الاستيراد…');
@@ -466,9 +542,9 @@
         const total = { added: 0, updated: 0, models: 0, containers: 0 };
         for (let i = 0; i < rows.length; i += size) {
           const part = rows.slice(i, i + size);
-          line(`… ${kind === 'orders' ? 'أوامر الشراء' : kind === 'lcs' ? 'الاعتمادات' : 'الفواتير'} ${i + 1}–${i + part.length} من ${rows.length}`, 'sub');
+          line(`… ${{ orders: 'أوامر الشراء', lcs: 'الاعتمادات', shipments: 'الفواتير', containers: 'الحاويات (فواتير)' }[kind]} ${i + 1}–${i + part.length} من ${rows.length}`, 'sub');
           const r = await API.importData(kind, clean(part), extra);
-          ['added', 'updated', 'models', 'containers'].forEach(k => { total[k] += r[k] || 0; });
+          ['added', 'updated', 'models', 'containers', 'matched', 'created', 'removed'].forEach(k => { total[k] = (total[k] || 0) + (r[k] || 0); });
           errs.push(...(r.errors || []));
         }
         return total;
@@ -482,8 +558,12 @@
         line(`✓ الاعتمادات: ${r.added} جديد، ${r.updated} تحديث`, 'ok');
       }
       if (shipments.length) {
-        const r = await send('shipments', shipments, 40);
+        const r = await send('shipments', shipments, 40, { assumeReturn: assume });
         line(`✓ الفواتير: ${r.added} جديد، ${r.updated} تحديث — ${r.containers} حاوية جديدة`, 'ok');
+      }
+      if (containers.length) {
+        const r = await send('containers', containers, 30, { assumeReturn: assume });
+        line(`✓ الحاويات: ${r.matched} تحدّثت، ${r.created} انضافت${r.removed ? `، ${r.removed} سطر فاضي انشال` : ''}`, 'ok');
       }
       if (errs.length) line(`<b>ما انستورد (${errs.length}):</b><br>` + errs.map(esc).join('<br>'), 'error');
       line('انتهى الاستيراد. تقدر تعيده في أي وقت بعد ما تعدّل ملفك — الموجود يتحدّث بس.', 'ok');
