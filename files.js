@@ -67,12 +67,12 @@
   async function load() {
     files = [];
     $('flStats').innerHTML = '';
-    $('flBody').innerHTML = '<tr><td colspan="12" class="empty">جارٍ التحميل…</td></tr>';
+    $('flBody').innerHTML = '<tr><td colspan="7" class="empty">جارٍ التحميل…</td></tr>';
     try {
       files = (await API.listFiles()).files || [];
       render();
     } catch (err) {
-      $('flBody').innerHTML = `<tr><td colspan="12" class="empty">${esc(err.message)}</td></tr>`;
+      $('flBody').innerHTML = `<tr><td colspan="7" class="empty">${esc(err.message)}</td></tr>`;
     }
   }
 
@@ -93,7 +93,7 @@
     ].map(([l, v]) => `<div class="stat"><small>${l}</small><b>${v}</b></div>`).join('');
 
     if (!list.length) {
-      $('flBody').innerHTML = `<tr><td colspan="12" class="empty">${files.length ? 'لا توجد ملفات مطابقة.' : 'لا توجد ملفات بعد. يُفتح ملف لكل تسلسل تلقائيًا بعد تعميد الشحن.'}</td></tr>`;
+      $('flBody').innerHTML = `<tr><td colspan="7" class="empty">${files.length ? 'لا توجد ملفات مطابقة.' : 'لا توجد ملفات بعد. يُفتح ملف لكل تسلسل تلقائيًا بعد تعميد الشحن.'}</td></tr>`;
       return;
     }
     $('flBody').innerHTML = list.map(f => {
@@ -101,16 +101,11 @@
       const arrival = f.actualArrival ? f.actualArrival : (f.eta ? '<span class="muted">متوقع ' + esc(f.eta) + '</span>' : '—');
       return `
       <tr data-serial="${esc(f.serial)}">
-        <td><b class="serial">${esc(f.serial)}</b></td>
-        <td dir="ltr" style="text-align:right">${esc(f.invoiceNo)}</td>
-        <td>${esc(f.poNos.join('، '))}</td>
-        <td dir="ltr" style="text-align:right">${esc(f.billOfLading || '—')}</td>
-        <td>${esc(f.shippingLine || '—')}</td>
-        <td>${arrival}</td>
-        <td class="num">${num(f.containers)} <span class="muted">(${num(f.receivedContainers)})</span></td>
-        <td><span class="tag ${docsCount(f) === DOCS.length ? 'ok' : 'gray'}">${docsCount(f)}/${DOCS.length}</span></td>
-        <td>${f.declarations.length ? `${f.declarations.length} بيان` : '—'}${f.noDeclContainers && f.declarations.length ? ` <span class="tag wait">${f.noDeclContainers} حاوية بدون</span>` : ''}</td>
-        <td>${f.declarations.length ? `<span class="tag ${f.declarations.every(d => d.release) ? 'ok' : 'gray'}">${f.declarations.filter(d => d.release).length}/${f.declarations.length}</span>` : '—'}</td>
+        ${cell2(`<span class="serial">${esc(f.serial)}</span>`, `<span dir="ltr">${esc(f.invoiceNo)}</span>`)}
+        ${cell2(`<span dir="ltr" class="clip">${esc(f.poNos.join('، '))}</span>`, esc(f.shippingLine || '—'))}
+        ${cell2(`<span dir="ltr">${esc(f.billOfLading || '—')}</span>`, arrival)}
+        ${cell2(`${num(f.containers)} <span class="muted">(${num(f.receivedContainers)} مستلمة)</span>`, `مستندات <span class="tag ${docsCount(f) === DOCS.length ? 'ok' : 'gray'}">${docsCount(f)}/${DOCS.length}</span>`)}
+        ${cell2(f.declarations.length ? `${f.declarations.length} بيان` : '—', (f.declarations.length ? `فسح <span class="tag ${f.declarations.every(d => d.release) ? 'ok' : 'gray'}">${f.declarations.filter(d => d.release).length}/${f.declarations.length}</span>` : '') + (f.noDeclContainers && f.declarations.length ? ` <span class="tag wait">${f.noDeclContainers} بدون</span>` : ''))}
         <td class="num">${c.expenses ? sar(c.landed) : '—'}</td>
         <td>${stateTag(f.state)}</td>
       </tr>`;

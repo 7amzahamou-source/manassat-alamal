@@ -96,14 +96,14 @@
   async function load() {
     lcs = [];
     $('lcStats').innerHTML = '';
-    $('lcBody').innerHTML = '<tr><td colspan="13" class="empty">جارٍ التحميل…</td></tr>';
+    $('lcBody').innerHTML = '<tr><td colspan="8" class="empty">جارٍ التحميل…</td></tr>';
     try {
       const r = await API.listLcs();
       lcs = r.lcs || [];
       poOptions = r.poOptions || [];
       render();
     } catch (err) {
-      $('lcBody').innerHTML = `<tr><td colspan="13" class="empty">${esc(err.message)}</td></tr>`;
+      $('lcBody').innerHTML = `<tr><td colspan="8" class="empty">${esc(err.message)}</td></tr>`;
     }
   }
 
@@ -129,23 +129,18 @@
     if (!list.length) {
       const msg = lcs.length ? 'لا توجد اعتمادات مطابقة.'
         : can('lcs', 'edit') ? 'لا توجد اعتمادات. اضغط «اعتماد جديد» واربطه بأمر شراء معتمد.' : 'لا توجد اعتمادات.';
-      $('lcBody').innerHTML = `<tr><td colspan="13" class="empty">${msg}</td></tr>`;
+      $('lcBody').innerHTML = `<tr><td colspan="8" class="empty">${msg}</td></tr>`;
       return;
     }
     $('lcBody').innerHTML = list.map(l => `
       <tr data-id="${esc(l.id)}">
-        <td><b dir="ltr">${esc(l.lcNo)}</b></td>
-        <td>${esc(l.bank)}</td>
-        <td>${esc(l.supplier || '—')}</td>
-        <td>${esc((l.pos || []).map(p => p.poNo).join('، '))}</td>
-        <td><b dir="ltr">${esc(l.incoterm || '—')}</b></td>
-        <td>${esc(l.payType)}${l.payType === 'آجل' ? ' ' + num(l.usanceDays) + ' يوم' : ''}</td>
-        <td class="num">${money(l.effAmount, l.currency)}</td>
-        <td class="num">${money(l.used)}${l.notDue ? `<small class="sub" style="display:block">مسدد ${money(l.paid)} · آجل ${money(l.notDue)}</small>` : ''}</td>
-        <td class="num"><b>${money(l.available)}</b></td>
-        <td>${l.state === 'مقفل' ? esc(l.effLatestShip) : daysTag(l.effLatestShip, l.available > 0 ? l.daysToLatestShip : null)}</td>
-        <td>${l.state === 'مقفل' ? esc(l.effExpiry) : daysTag(l.effExpiry, l.daysToExpiry)}</td>
-        <td>${esc(l.nextDue || '—')}</td>
+        ${cell2(`<span dir="ltr">${esc(l.lcNo)}</span>`, esc(l.bank))}
+        ${cell2(`<span class="clip">${esc(l.supplier || '—')}</span>`, `<span dir="ltr" class="clip">${esc((l.pos || []).map(p => p.poNo).join('، ') || '—')}</span>`)}
+        ${cell2(`<span dir="ltr">${esc(l.incoterm || '—')}</span>`, esc(l.payType) + (l.payType === 'آجل' ? ' ' + num(l.usanceDays) + ' يوم' : ''))}
+        ${cell2(money(l.effAmount), esc(l.currency), 'num')}
+        ${cell2(money(l.used), `متاح <b class="${l.available < 0 ? 'neg' : ''}">${money(l.available)}</b>`, 'num')}
+        ${cell2(l.state === 'مقفل' ? esc(l.effLatestShip || '—') : daysTag(l.effLatestShip, l.available > 0 ? l.daysToLatestShip : null), 'صلاحية ' + (l.state === 'مقفل' ? esc(l.effExpiry) : daysTag(l.effExpiry, l.daysToExpiry)))}
+        ${cell2(esc(l.nextDue || '—'), l.notDue ? 'آجل ' + money(l.notDue) : '')}
         <td>${stateTag(l.state)}</td>
       </tr>`).join('');
   }

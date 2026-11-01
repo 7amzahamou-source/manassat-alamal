@@ -68,13 +68,13 @@
   async function load() {
     models = [];
     $('modelStats').innerHTML = '';
-    $('modelsBody').innerHTML = '<tr><td colspan="9" class="empty">جارٍ تحميل الموديلات…</td></tr>';
+    $('modelsBody').innerHTML = '<tr><td colspan="5" class="empty">جارٍ تحميل الموديلات…</td></tr>';
     try {
       const result = await API.listModels();
       models = result.models || [];
       render();
     } catch (err) {
-      $('modelsBody').innerHTML = `<tr><td colspan="9" class="empty">${esc(err.message)}</td></tr>`;
+      $('modelsBody').innerHTML = `<tr><td colspan="5" class="empty">${esc(err.message)}</td></tr>`;
     }
   }
 
@@ -106,7 +106,7 @@
     if (!list.length) {
       const msg = models.length ? 'لا توجد موديلات مطابقة.'
         : can('models', 'edit') ? 'القاعدة فارغة. أضف موديل أو استورد قائمتك من إكسل.' : 'لا توجد موديلات بعد.';
-      $('modelsBody').innerHTML = `<tr><td colspan="9" class="empty">${msg}</td></tr>`;
+      $('modelsBody').innerHTML = `<tr><td colspan="5" class="empty">${msg}</td></tr>`;
       return;
     }
 
@@ -114,14 +114,10 @@
       const c = certInfo(m);
       return `
       <tr data-id="${esc(m.id)}">
-        <td><b dir="ltr">${esc(m.code)}</b></td>
-        <td>${esc(m.department || 'عام')}</td>
-        <td>${esc(m.factory || '—')}</td>
-        <td>${esc(m.brand || '—')}</td>
-        <td class="desc">${esc(m.description || '—')}</td>
-        <td>${esc(m.unit)}</td>
-        <td class="num">${m.perContainer ? num(m.perContainer) : '—'}</td>
-        <td><span class="tag ${c.cls}">${esc(c.label)}</span></td>
+        ${cell2(`<span dir="ltr">${esc(m.code)}</span>`, esc(m.description || '—'))}
+        ${cell2(esc(m.department || 'عام'), esc([m.factory, m.brand].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(' · ') || '—'))}
+        ${cell2(m.perContainer ? num(m.perContainer) : '—', esc(m.unit || ''), 'num')}
+        <td><span class="tag ${c.cls}">${esc(c.label)}</span>${m.certNo ? `<small dir="ltr">${esc(m.certNo)}</small>` : ''}</td>
         <td><span class="tag ${m.status === 'غير فعال' ? 'gray' : 'ok'}">${esc(m.status)}</span></td>
       </tr>`;
     }).join('');

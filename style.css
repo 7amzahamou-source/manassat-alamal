@@ -834,3 +834,17 @@ table.rp-t .clip2 { word-break: break-all; }
 table.rp-t td small b.neg, table.rp-t td b.neg { color: var(--bad); }
 table.rp-t td, table.rp-t th { white-space: normal; }
 table.sh-table td, table.sh-table th { white-space: normal; }
+
+/* ===== جداول مختصرة موحّدة (أوامر الشراء، الموديلات، الحاويات، الملفات، الاعتمادات) ===== */
+table.cx { table-layout: fixed; width: 100%; min-width: 860px; }
+table.cx th, table.cx td { white-space: normal; vertical-align: middle; overflow-wrap: anywhere; padding: 10px 12px; }
+table.cx td > b { display: block; font-size: 14px; font-weight: 600; }
+table.cx td small { display: block; color: var(--mute); font-size: 12px; margin-top: 3px; }
+table.cx td small b { display: inline; color: var(--ink); }
+table.cx .clip { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; unicode-bidi: plaintext; text-align: right; }
+table.cx .mchip { white-space: normal; word-break: break-all; font-size: 11.5px; }
+table.cx .tag { font-size: 11px; padding: 1px 7px; }
+table.cx td.chk, table.cx th.chk { width: auto; padding-inline: 8px 4px; }
+table.cx .progress { min-width: 0; }
+table.cx b.neg { color: var(--bad); }
+table.cx .tag { white-space: nowrap; }

@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=28">
+  <link rel="stylesheet" href="style.css?v=29">
 </head>
 <body>
 
@@ -279,11 +279,11 @@
               </select>
             </div>
             <div class="table-wrap">
-              <table>
+              <table class="cx"><colgroup><col style="width:15%"><col style="width:20%"><col style="width:24%"><col style="width:11%"><col style="width:14%"><col style="width:9%"><col style="width:7%"></colgroup>
                 <thead>
                   <tr>
-                    <th>رقم الأمر</th><th>التاريخ</th><th>القسم</th><th>المورد</th>
-                    <th>البنود</th><th>الكمية</th><th>الحاويات</th><th>الشحن</th><th>الحالة</th>
+                    <th>أمر الشراء / التاريخ</th><th>المورد / القسم</th><th>الموديلات</th><th>الكمية / الحاويات</th>
+                    <th>الشرط والدفع / الموانئ</th><th>الشحن</th><th>الحالة</th>
                   </tr>
                 </thead>
                 <tbody id="ordersBody"></tbody>
@@ -327,11 +327,10 @@
               </select>
             </div>
             <div class="table-wrap">
-              <table>
+              <table class="cx"><colgroup><col style="width:34%"><col style="width:24%"><col style="width:14%"><col style="width:16%"><col style="width:12%"></colgroup>
                 <thead>
                   <tr>
-                    <th>الموديل</th><th>القسم</th><th>المصنع</th><th>العلامة</th><th>الوصف</th>
-                    <th>الوحدة</th><th>الكمية / الحاوية</th><th>الشهادة</th><th>الحالة</th>
+                    <th>الموديل / الوصف</th><th>القسم / المصنع والعلامة</th><th>في الحاوية / الوحدة</th><th>شهادة SASO</th><th>الحالة</th>
                   </tr>
                 </thead>
                 <tbody id="modelsBody"></tbody>
@@ -445,13 +444,12 @@
               <span id="bulkError" class="error"></span>
             </div>
             <div class="table-wrap">
-              <table>
+              <table class="cx"><colgroup><col style="width:4%"><col style="width:13%"><col style="width:12%"><col style="width:18%"><col style="width:9%"><col style="width:11%"><col style="width:11%"><col style="width:12%"><col style="width:10%"></colgroup>
                 <thead>
                   <tr>
                     <th class="chk"><input type="checkbox" id="cnAll" aria-label="تحديد الكل"></th>
-                    <th>التسلسل</th><th>#</th><th>رقم الحاوية</th><th>الفاتورة</th><th>أمر الشراء</th><th>الموديل</th>
-                    <th>الكمية</th><th>ميناء الوصول</th><th>البيان</th><th>التفريغ</th><th>الأيام المجانية</th><th>المستودع</th>
-                    <th>الاستلام</th><th>إرجاع الفارغ</th><th>الحالة</th>
+                    <th>الحاوية</th><th>التسلسل / الفاتورة</th><th>أمر الشراء / الموديل</th><th>الكمية / المستودع</th>
+                    <th>الميناء / التفريغ</th><th>البيان / الأيام المجانية</th><th>الاستلام / إرجاع الفارغ</th><th>الحالة</th>
                   </tr>
                 </thead>
                 <tbody id="cnBody"></tbody>
@@ -497,12 +495,11 @@
               </select>
             </div>
             <div class="table-wrap">
-              <table>
+              <table class="cx"><colgroup><col style="width:15%"><col style="width:18%"><col style="width:17%"><col style="width:14%"><col style="width:13%"><col style="width:12%"><col style="width:11%"></colgroup>
                 <thead>
                   <tr>
-                    <th>التسلسل</th><th>الفاتورة</th><th>أمر الشراء</th><th>البوليصة</th><th>الخط الملاحي</th>
-                    <th>الوصول</th><th>الحاويات (مستلمة)</th><th>المستندات</th><th>البيانات</th><th>الفسح</th>
-                    <th>التكلفة الواصلة</th><th>الحالة</th>
+                    <th>التسلسل / الفاتورة</th><th>أمر الشراء / الخط الملاحي</th><th>البوليصة / الوصول</th>
+                    <th>الحاويات / المستندات</th><th>البيانات / الفسح</th><th>التكلفة الواصلة</th><th>الحالة</th>
                   </tr>
                 </thead>
                 <tbody id="flBody"></tbody>
@@ -537,12 +534,11 @@
               </select>
             </div>
             <div class="table-wrap">
-              <table>
+              <table class="cx"><colgroup><col style="width:14%"><col style="width:20%"><col style="width:9%"><col style="width:12%"><col style="width:13%"><col style="width:13%"><col style="width:11%"><col style="width:8%"></colgroup>
                 <thead>
                   <tr>
-                    <th>رقم الاعتماد</th><th>البنك</th><th>المورد</th><th>أوامر الشراء</th><th>الشرط</th><th>الدفع</th>
-                    <th>المبلغ</th><th>المستخدم</th><th>المتاح</th><th>آخر شحن</th><th>الصلاحية</th>
-                    <th>الاستحقاق القادم</th><th>الحالة</th>
+                    <th>الاعتماد / البنك</th><th>المورد / أوامر الشراء</th><th>الشرط / الدفع</th><th>المبلغ</th>
+                    <th>المستخدم / المتاح</th><th>آخر شحن / الصلاحية</th><th>الاستحقاق القادم</th><th>الحالة</th>
                   </tr>
                 </thead>
                 <tbody id="lcBody"></tbody>
@@ -1265,19 +1261,19 @@
   <div id="toast" class="toast" role="status"></div>
 
   <script src="config.js"></script>
-  <script src="api.js?v=28"></script>
-  <script src="app.js?v=28"></script>
-  <script src="dashboard.js?v=28"></script>
-  <script src="report.js?v=28"></script>
-  <script src="orders.js?v=28"></script>
-  <script src="models.js?v=28"></script>
-  <script src="shipping.js?v=28"></script>
-  <script src="containers.js?v=28"></script>
-  <script src="files.js?v=28"></script>
-  <script src="rates.js?v=28"></script>
-  <script src="lcs.js?v=28"></script>
-  <script src="workflow.js?v=28"></script>
-  <script src="users.js?v=28"></script>
-  <script src="import.js?v=28"></script>
+  <script src="api.js?v=29"></script>
+  <script src="app.js?v=29"></script>
+  <script src="dashboard.js?v=29"></script>
+  <script src="report.js?v=29"></script>
+  <script src="orders.js?v=29"></script>
+  <script src="models.js?v=29"></script>
+  <script src="shipping.js?v=29"></script>
+  <script src="containers.js?v=29"></script>
+  <script src="files.js?v=29"></script>
+  <script src="rates.js?v=29"></script>
+  <script src="lcs.js?v=29"></script>
+  <script src="workflow.js?v=29"></script>
+  <script src="users.js?v=29"></script>
+  <script src="import.js?v=29"></script>
 </body>
 </html>

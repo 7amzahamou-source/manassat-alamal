@@ -39,6 +39,14 @@ const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': 
 const num = n => new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(Number(n) || 0);
 const money = (n, cur) => new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Number(n) || 0) + (cur ? ' ' + cur : '');
 const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+/** خلية مختصرة: سطر رئيسي + سطر فرعي */
+const cell2 = (main, sub, cls) => `<td${cls ? ` class="${cls}"` : ''}><b>${main}</b>${sub ? `<small>${sub}</small>` : ''}</td>`;
+/** شارات (موديلات/أرقام) أول n + عدد الباقي */
+const chips = (items, n) => {
+  const more = items.length - n;
+  return `<div class="mchips">${items.slice(0, n).map(([t, q]) => `<span class="mchip" dir="ltr">${esc(t)}${q != null ? ` <i>${num(q)}</i>` : ''}</span>`).join('')}` +
+    (more > 0 ? `<span class="mchip more" title="${esc(items.slice(n).map(([t, q]) => t + (q != null ? ': ' + num(q) : '')).join('\n'))}">+${more}</span>` : '') + '</div>';
+};
 const options = (list, first) => (first !== undefined ? `<option value="">${first}</option>` : '') + list.map(x => `<option>${esc(x)}</option>`).join('');
 
 /** حالة شهادة SASO للموديل: { label, cls, attention } */

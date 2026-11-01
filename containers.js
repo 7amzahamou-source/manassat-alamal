@@ -70,7 +70,7 @@
   async function load() {
     containers = [];
     $('cnStats').innerHTML = '';
-    $('cnBody').innerHTML = '<tr><td colspan="14" class="empty">جارٍ التحميل…</td></tr>';
+    $('cnBody').innerHTML = '<tr><td colspan="9" class="empty">جارٍ التحميل…</td></tr>';
     try {
       containers = (await API.listContainers()).containers || [];
       const wh = $('cnFilterWh').value;
@@ -83,7 +83,7 @@
       [...selected].forEach(id => { if (!containers.some(c => c.id === id)) selected.delete(id); });
       render();
     } catch (err) {
-      $('cnBody').innerHTML = `<tr><td colspan="14" class="empty">${esc(err.message)}</td></tr>`;
+      $('cnBody').innerHTML = `<tr><td colspan="9" class="empty">${esc(err.message)}</td></tr>`;
     }
   }
 
@@ -121,7 +121,7 @@
 
     if (!list.length) {
       const msg = containers.length ? 'لا توجد حاويات مطابقة.' : 'لا توجد حاويات بعد. تُنشأ تلقائيًا عند تعميد الشحن.';
-      $('cnBody').innerHTML = `<tr><td colspan="16" class="empty">${msg}</td></tr>`;
+      $('cnBody').innerHTML = `<tr><td colspan="9" class="empty">${msg}</td></tr>`;
       $('cnAll').checked = false;
       updateBulk();
       return;
@@ -133,20 +133,13 @@
       return `
       <tr data-id="${esc(c.id)}" class="${selected.has(c.id) ? 'picked' : ''}">
         <td class="chk">${editable ? `<input type="checkbox" data-pick="${esc(c.id)}"${selected.has(c.id) ? ' checked' : ''} aria-label="تحديد">` : ''}</td>
-        <td><b>${esc(c.serial)}</b></td>
-        <td class="num muted">${esc(c.seq)}</td>
-        <td dir="ltr" style="text-align:right">${c.containerNo ? `<b>${esc(c.containerNo)}</b>` : '<span class="tag bad">بدون رقم</span>'}${c.size ? ` <span class="muted">${esc(c.size)}'</span>` : ''}</td>
-        <td dir="ltr" style="text-align:right">${esc(c.invoiceNo)}</td>
-        <td>${esc(c.poNo)}</td>
-        <td dir="ltr" style="text-align:right">${esc(c.model || '—')}</td>
-        <td class="num">${c.qty ? num(c.qty) : '—'}</td>
-        <td>${esc(c.arrivalPort || '—')}</td>
-        <td>${declTag(c)}</td>
-        <td>${esc(c.dischargeDate || (c.eta ? 'متوقع ' + c.eta : '—'))}</td>
-        <td>${f ? `<span class="tag ${f.cls}" title="آخر يوم مجاني ${f.last}">${esc(f.label)}</span>` : (c.dischargeDate ? '<span class="muted">فترة السماح غير محددة في الشحنة</span>' : (c.freeDays !== '' ? `<span class="muted">${esc(c.freeDays)} يوم</span>` : '—'))}</td>
-        <td>${esc(c.warehouse || '—')}</td>
-        <td>${esc(c.receivedDate || '—')}${c.receivedDate && c.receivedQty !== '' && Number(c.receivedQty) !== Number(c.qty) ? ` <span class="tag wait" title="الكمية المستلمة تختلف">${num(c.receivedQty)}</span>` : ''}</td>
-        <td>${esc(c.emptyReturnDate || '—')}</td>
+        ${cell2(c.containerNo ? `<span dir="ltr">${esc(c.containerNo)}</span>` : '<span class="tag bad">بدون رقم</span>', `#${esc(c.seq)}${c.size ? ' · ' + esc(c.size) : ''}`)}
+        ${cell2(esc(c.serial), `<span dir="ltr">${esc(c.invoiceNo)}</span>`)}
+        ${cell2(`<span dir="ltr">${esc(c.poNo)}</span>`, `<span dir="ltr" class="clip">${esc(c.model || '—')}</span>`)}
+        ${cell2(c.qty ? num(c.qty) : '—', esc(c.warehouse || '—'), 'num')}
+        ${cell2(esc(c.arrivalPort || '—'), c.dischargeDate ? 'تفريغ ' + esc(c.dischargeDate) : (c.eta ? 'متوقع ' + esc(c.eta) : '—'))}
+        <td>${declTag(c)}<small>${f ? `<span class="tag ${f.cls}" title="آخر يوم مجاني ${f.last}">${esc(f.label)}</span>` : (c.freeDays !== '' && c.freeDays != null ? esc(c.freeDays) + ' يوم مجاني' : '—')}</small></td>
+        ${cell2(esc(c.receivedDate || '—') + (c.receivedDate && c.receivedQty !== '' && Number(c.receivedQty) !== Number(c.qty) ? ` <span class="tag wait" title="الكمية المستلمة تختلف">${num(c.receivedQty)}</span>` : ''), 'فارغ ' + esc(c.emptyReturnDate || '—'))}
         <td>${stateTag(c.state)}</td>
       </tr>`;
     }).join('');

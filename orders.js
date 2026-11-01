@@ -137,13 +137,13 @@
   async function load() {
     orders = [];
     $('stats').innerHTML = '';
-    $('ordersBody').innerHTML = '<tr><td colspan="9" class="empty">جارٍ تحميل الأوامر…</td></tr>';
+    $('ordersBody').innerHTML = '<tr><td colspan="7" class="empty">جارٍ تحميل الأوامر…</td></tr>';
     try {
       const result = await API.listOrders();
       orders = result.orders || [];
       render();
     } catch (err) {
-      $('ordersBody').innerHTML = `<tr><td colspan="9" class="empty">${esc(err.message)}</td></tr>`;
+      $('ordersBody').innerHTML = `<tr><td colspan="7" class="empty">${esc(err.message)}</td></tr>`;
     }
   }
 
@@ -170,19 +170,17 @@
     if (!list.length) {
       const msg = orders.length ? 'لا توجد أوامر مطابقة للبحث.'
         : can('orders', 'edit') ? 'لا توجد أوامر بعد. اضغط «أمر شراء جديد» لإضافة أول أمر.' : 'لا توجد أوامر بعد.';
-      $('ordersBody').innerHTML = `<tr><td colspan="9" class="empty">${msg}</td></tr>`;
+      $('ordersBody').innerHTML = `<tr><td colspan="7" class="empty">${msg}</td></tr>`;
       return;
     }
 
     $('ordersBody').innerHTML = list.map(o => `
       <tr data-id="${esc(o.id)}">
-        <td><b>${esc(o.poNo)}</b></td>
-        <td>${esc(o.date)}</td>
-        <td>${esc(o.department)}</td>
-        <td>${esc(o.supplier)}<span class="ports-cell">${esc([o.incoterm, (o.ports || []).join(' · ')].filter(Boolean).join(' — '))}</span></td>
-        <td class="num">${(o.items || []).length}</td>
-        <td class="num">${num(o.totalQty)}</td>
-        <td class="num">${num(containersOf(o)) || '—'}</td>
+        ${cell2(`<span dir="ltr">${esc(o.poNo)}</span>`, esc(o.date))}
+        ${cell2(`<span class="clip">${esc(o.supplier)}</span>`, esc(o.department))}
+        <td>${chips((o.items || []).map(i => [i.model, i.qty]), 3)}</td>
+        ${cell2(num(o.totalQty), `${(o.items || []).length} بند · ${num(containersOf(o)) || '—'} حاوية`, 'num')}
+        ${cell2(`<span dir="ltr">${esc([o.incoterm, o.payMethod].filter(Boolean).join(' · ') || '—')}</span>`, `<span dir="ltr">${esc((o.ports || []).join(' · ') || '—')}</span>`)}
         <td>${shipProgress(o)}</td>
         <td>${statusTag(o.status)}</td>
       </tr>`).join('');
