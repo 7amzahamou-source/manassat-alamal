@@ -924,3 +924,13 @@ tr.tk-unread td > b { font-weight: 700; }
 .btn.tk-top-btn:hover { background: var(--acc); color: #fff; }
 .btn.tk-top-btn .ic { stroke: currentColor; }
 @media (max-width: 600px) { .btn.tk-top-btn span { display: none; } }
+
+/* إسناد البلاغ */
+.tk-assign { border: 1px dashed var(--acc); border-radius: 12px; padding: 10px 12px; margin: 10px 0 14px; background: var(--acc-soft); }
+.tk-assign label { margin-top: 0; }
+.tk-assign-row { display: flex; gap: 8px; }
+.tk-assign-row select { flex: 1; }
+.tk-msg.assignee { align-self: flex-end; background: var(--panel-2); border-style: dashed; }
+.tk-role { color: var(--acc); font-weight: 600; margin-inline-start: 4px; }
+.tk-h { display: flex; align-items: baseline; gap: 8px; margin: 8px 0 2px; font-size: 16px; }
+.tk-h small { font-weight: 400; }

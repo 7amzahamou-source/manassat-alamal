@@ -100,6 +100,6 @@ const API = {
   createTicket(ticket)  { return this.call('createTicket',  { token: this.token(), ticket }); },
   myTicketAction(id, op, text) { return this.call('myTicketAction', { token: this.token(), id, op, text }); },
   listTickets()         { return this.call('listTickets',   { token: this.token() }); },
-  ticketAction(id, op, text)   { return this.call('ticketAction',   { token: this.token(), id, op, text }); },
+  ticketAction(id, op, text, to) { return this.call('ticketAction', { token: this.token(), id, op, text, to }); },
   ticketBadges()        { return this.call('ticketBadges',  { token: this.token() }); }
 };
