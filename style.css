@@ -934,3 +934,65 @@ tr.tk-unread td > b { font-weight: 700; }
 .tk-role { color: var(--acc); font-weight: 600; margin-inline-start: 4px; }
 .tk-h { display: flex; align-items: baseline; gap: 8px; margin: 8px 0 2px; font-size: 16px; }
 .tk-h small { font-weight: 400; }
+
+/* ===== الخطوة 37: داشبورد الإدارة العليا ===== */
+#rpSummary.rp-summary { display: block; margin-bottom: 14px; }
+.dk-k5 { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 12px; }
+.dk-kpi { all: unset; box-sizing: border-box; cursor: pointer; display: flex; flex-direction: column; gap: 2px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; box-shadow: var(--shadow); }
+.dk-kpi:hover, .dk-kpi:focus-visible { border-color: var(--acc); }
+.dk-kpi i { font-style: normal; font-size: 18px; }
+.dk-kpi small { color: var(--mute); font-size: 12.5px; }
+.dk-kpi b { font-size: 28px; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.dk-kpi span { color: var(--mute); font-size: 12.5px; }
+.dk-kpi em { font-style: normal; font-size: 11.5px; font-weight: 600; margin-top: 6px; padding: 2px 8px; border-radius: 20px; align-self: flex-start; }
+.dk-kpi em.ok { color: var(--ok); background: color-mix(in srgb, var(--ok) 13%, transparent); }
+.dk-kpi em.wt { color: var(--wait); background: color-mix(in srgb, var(--wait) 14%, transparent); }
+.dk-kpi em.up { color: var(--bad); background: color-mix(in srgb, var(--bad) 12%, transparent); }
+.dk-card { padding: 14px 16px; margin-bottom: 12px; min-width: 0; }
+.dk-card h3 { margin: 0 0 2px; font-size: 15px; }
+.dk-card > .sub { margin: 0 0 12px; }
+.dk-flow { display: grid; grid-template-columns: repeat(6, 1fr); gap: 8px; }
+.dk-st { all: unset; box-sizing: border-box; cursor: pointer; background: var(--panel-2); border: 1px solid var(--line); border-radius: 10px; padding: 10px; display: flex; flex-direction: column; gap: 4px; position: relative; }
+.dk-st:not(:last-child)::after { content: '◀'; position: absolute; left: -8px; top: 50%; transform: translateY(-50%); font-size: 9px; color: var(--mute); }
+.dk-st:hover { border-color: var(--acc); }
+.dk-st small { color: var(--mute); font-size: 12px; min-height: 2.6em; }
+.dk-st b { font-size: 22px; font-variant-numeric: tabular-nums; }
+.dk-st em { font-style: normal; font-size: 11px; color: var(--bad); font-weight: 600; }
+.dk-st.alert { border-color: var(--bad); box-shadow: 0 0 0 2px color-mix(in srgb, var(--bad) 18%, transparent); }
+.dk-bar { display: block; height: 6px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.dk-bar span { display: block; height: 100%; background: #2a78d6; border-radius: 4px; }
+.dk-c2 { display: grid; grid-template-columns: 1.6fr 1fr; gap: 12px; }
+.dk-c3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+.dk-c2 > .card, .dk-c3 > .card { margin-bottom: 12px; }
+.dk-card .leg { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 12px; color: var(--mute); margin-top: 6px; }
+.dk-card .leg i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-inline-end: 5px; vertical-align: -1px; }
+.dk-card .leg b { color: var(--ink); }
+.dk-alerts { display: flex; flex-direction: column; gap: 8px; }
+.dk-al { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 10px; font-size: 13.5px; border: 1px solid var(--line); }
+.dk-al b { margin-inline-start: auto; font-size: 16px; font-variant-numeric: tabular-nums; }
+.dk-al .ic { width: 20px; height: 20px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 12px; flex: none; }
+.dk-al.bad { background: color-mix(in srgb, var(--bad) 8%, transparent); } .dk-al.bad .ic { background: var(--bad); } .dk-al.bad b { color: var(--bad); }
+.dk-al.wait { background: color-mix(in srgb, var(--wait) 9%, transparent); } .dk-al.wait .ic { background: var(--wait); } .dk-al.wait b { color: var(--wait); }
+.dk-al:hover { border-color: var(--acc); }
+.dk-ok { color: var(--ok); font-weight: 600; margin: 20px 0; text-align: center; }
+.dk-lcm { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 10px; }
+.dk-lcm small { display: block; color: var(--mute); font-size: 11.5px; }
+.dk-lcm b { font-size: 19px; font-variant-numeric: tabular-nums; }
+.dk-stack { display: flex; height: 14px; border-radius: 7px; overflow: hidden; background: var(--line); gap: 2px; }
+.dk-stack span { display: block; height: 100%; }
+.dk-hb { display: flex; flex-direction: column; gap: 9px; }
+.dk-hb > div { display: grid; grid-template-columns: minmax(70px, 38%) 1fr 34px; align-items: center; gap: 8px; font-size: 13px; }
+.dk-hb span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dk-hb i { display: block; height: 10px; background: var(--line); border-radius: 5px; overflow: hidden; }
+.dk-hb em { display: block; height: 100%; background: #2a78d6; border-radius: 5px; }
+.dk-hb b { text-align: left; font-variant-numeric: tabular-nums; }
+.dk-more { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.dk-more > div > .sub { margin: 0; }
+.dk-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.dk-chips button { all: unset; cursor: pointer; font-size: 13px; padding: 4px 12px; border: 1px solid var(--line); border-radius: 20px; background: var(--panel-2); }
+.dk-chips button:hover { border-color: var(--acc); color: var(--acc); }
+@media (max-width: 1100px) { .dk-k5 { grid-template-columns: repeat(3, 1fr); } .dk-flow { grid-template-columns: repeat(3, 1fr); } .dk-st::after { display: none; } }
+@media (max-width: 900px) { .dk-c2, .dk-c3 { grid-template-columns: 1fr; } }
+@media (max-width: 560px) { .dk-k5 { grid-template-columns: repeat(2, 1fr); } .dk-flow { grid-template-columns: repeat(2, 1fr); } .dk-kpi b { font-size: 24px; } }
+@media print { .dk-k5 { grid-template-columns: repeat(5, 1fr); } .dk-c2 { grid-template-columns: 1.6fr 1fr; } .dk-c3 { grid-template-columns: repeat(3, 1fr); } .dk-card, .dk-kpi { break-inside: avoid; box-shadow: none; } }
+.dk-late { all: unset; cursor: pointer; display: block; font-size: 12.5px; font-weight: 600; color: var(--bad); background: color-mix(in srgb, var(--bad) 8%, transparent); border-radius: 8px; padding: 5px 10px; margin-bottom: 8px; }

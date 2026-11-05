@@ -17,6 +17,12 @@
       $(a.dataset.to).scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
     // طي / إظهار كل جدول من السهم جنب عنوانه
+    $('rpSummary').addEventListener('click', e => {
+      const b = e.target.closest('[data-open]');
+      if (!b || !$(b.dataset.open)) return;
+      setCollapsed(b.dataset.open, false);
+      $(b.dataset.open).scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
     $('rpBody').addEventListener('click', e => {
       const h = e.target.closest('[data-tog]');
       if (!h) return;
@@ -32,7 +38,9 @@
 
   /* ===== طي الجداول (يُحفظ في المتصفح) ===== */
   const FOLD_KEY = 'rp-collapsed';
-  const folded = () => { try { return JSON.parse(localStorage.getItem(FOLD_KEY) || '[]'); } catch (e) { return []; } };
+  // أول مرة (ما فيه اختيار محفوظ): كل الجداول مطوية تحت الداشبورد
+  const ALL_SECTIONS = ['rp-mfg', 'rp-ready', 'rp-shipped', 'rp-sea', 'rp-nodecl', 'rp-yard', 'rp-recv', 'rp-wh', 'rp-lcs', 'rp-rates'];
+  const folded = () => { try { const v = localStorage.getItem(FOLD_KEY); return v == null ? ALL_SECTIONS.slice() : JSON.parse(v); } catch (e) { return ALL_SECTIONS.slice(); } };
   const allSections = () => [...document.querySelectorAll('#rpBody .rp-sec')].map(s => s.id);
   function setCollapsed(id, on) {
     const sec = $(id);
@@ -137,25 +145,171 @@
   const boxTotals = cols => list => `<td>الإجمالي — ${num(list.length)} فاتورة</td><td></td><td><b>${num(list.reduce((t, x) => t + x.list.length, 0))} حاوية</b></td><td class="num"><b>${num(list.reduce((t, x) => t + x.qty, 0))}</b></td>${'<td></td>'.repeat(cols - 4)}`;
   const freeCell = x => x.freeLeft == null ? '<td>—</td>' : two(freeTag({ freeLeft: x.freeLeft }), x.freeLast ? 'آخر يوم ' + esc(x.freeLast) : '');
 
+  /* =====================================================
+     الداشبورد المختصر (فوق الجداول)
+  ===================================================== */
+  const PORT_KEYS = [['dmm', 'الدمام', '#2a78d6'], ['jed', 'جدة', '#eb6834'], ['rbg', 'رابغ', '#1baf7a']];
+  const portKey = p => { p = String(p || ''); return p.includes('دمام') ? 'dmm' : p.includes('جد') ? 'jed' : p.includes('رابغ') || p.includes('عبدالله') ? 'rbg' : 'other'; };
+  const short = v => { v = Number(v) || 0; const a = Math.abs(v);
+    return a >= 1e6 ? (v / 1e6).toFixed(a >= 1e7 ? 1 : 2).replace(/\.?0+$/, '') + 'M' : a >= 1e3 ? Math.round(v / 1e3) + 'K' : num(Math.round(v)); };
+
+  function renderDash(d) {
+    const t0 = d.today, s = d.summary, c = d.containers, x = d.dash || {};
+    const days = e => daysBetween(t0, e);
+    const readyLate = groupGoods(d.goods.ready).filter(r => r.readyDate && daysBetween(r.readyDate, t0) > 7).length;
+    const seaInv = new Set(c.atSea.map(r => r.serial)).size;
+    const arriving = c.atSea.filter(r => r.eta && days(r.eta) >= 0 && days(r.eta) <= 14).length;
+    const lateSea = c.atSea.filter(r => r.eta && days(r.eta) < 0);
+    const clearance = c.noDecl.length + c.inYard.length;
+    const overFree = c.noDecl.concat(c.inYard, c.received).filter(r => r.freeLeft != null && r.freeLeft < 0).length;
+    const nearFree = c.noDecl.filter(r => r.freeLeft != null && r.freeLeft >= 0 && r.freeLeft <= 3).length;
+    const ch = x.recvPrevMonth ? Math.round((x.recvMonth - x.recvPrevMonth) / x.recvPrevMonth * 100) : null;
+
+    // --- الأرقام الرئيسية ---
+    const kpi = (ic, label, val, sub, flag, cls, to) => `<button type="button" class="dk-kpi" data-open="${to}">
+      <i aria-hidden="true">${ic}</i><small>${label}</small><b>${num(val)}</b><span>${sub}</span>${flag ? `<em class="${cls}">${flag}</em>` : ''}</button>`;
+    const kpis = [
+      kpi('🏭', 'قيد التصنيع', s.mfg.containers, `حاوية · ${num(s.mfg.qty)} قطعة`, '', '', 'rp-mfg'),
+      kpi('📦', 'جاهزة بانتظار التعميد', s.ready.containers, `حاوية · ${num(s.ready.requests)} طلب`, readyLate ? `⚠ ${readyLate} طلب أكثر من 7 أيام` : '', 'wt', 'rp-ready'),
+      kpi('🚢', 'في البحر', c.atSea.length, `حاوية · ${num(seaInv)} فاتورة`, arriving ? `تصل ${num(arriving)} حاوية خلال 14 يوم` : '', 'wt', 'rp-sea'),
+      kpi('🛃', 'في التخليص', clearance, `حاوية · ${num(c.noDecl.length)} بدون بيان`, overFree ? `⚠ ${num(overFree)} تجاوزت فترة السماح` : '', 'up', 'rp-nodecl'),
+      kpi('✅', 'استُلمت هالشهر', x.recvMonth || 0, 'حاوية · في المستودعات', ch == null ? '' : `${ch >= 0 ? '▲' : '▼'} ${Math.abs(ch)}% عن الشهر الماضي`, ch >= 0 ? 'ok' : 'wt', 'rp-recv')
+    ].join('');
+
+    // --- مسار البضاعة ---
+    const stages = [['قيد التصنيع', s.mfg.containers, 'rp-mfg'], ['بانتظار التعميد', s.ready.containers, 'rp-ready'], ['في البحر', c.atSea.length, 'rp-sea'],
+      ['وصلت بدون بيان', c.noDecl.length, 'rp-nodecl', nearFree ? `● ${nearFree} قرّبت الأرضيات` : ''], ['في ساحات المخلص', c.inYard.length, 'rp-yard'],
+      ['مستلمة — لم يُرجع الفارغ', c.received.length, 'rp-recv']];
+    const mx = Math.max(1, ...stages.map(st => st[1]));
+    const flow = stages.map(([l, v, to, flag]) => `<button type="button" class="dk-st${flag ? ' alert' : ''}" data-open="${to}" title="${l}: ${num(v)} حاوية">
+      <small>${l}</small><b>${num(v)}</b><span class="dk-bar"><span style="width:${Math.max(v ? 3 : 0, v / mx * 100)}%"></span></span>${flag ? `<em>${flag}</em>` : ''}</button>`).join('');
+
+    // --- الواصلة حسب الأسبوع (مكدّسة حسب ميناء الوصول) ---
+    const buckets = [['هالأسبوع', []], ['الأسبوع 2', []], ['الأسبوع 3', []], ['الأسبوع 4', []], ['الأسبوع 5', []], ['بعدها', []]];
+    c.atSea.forEach(r => {
+      if (!r.eta) return;
+      const dd = days(r.eta);
+      if (dd < 0) return;                       // المتأخرة تظهر كملاحظة، مو عمود (عشان ما تخفي الباقي)
+      buckets[Math.min(5, Math.floor(dd / 7))][1].push(r);
+    });
+    const cols = buckets.filter(([l, list], i) => list.length || i < 5);
+    const series = PORT_KEYS.concat([['other', 'أخرى', '#9a9cb5']]);
+    const used = series.filter(([k]) => cols.some(([, list]) => list.some(r => portKey(r.arrivalPort) === k)));
+    const maxCol = Math.max(1, ...cols.map(([, l]) => l.length));
+    const W = 560, H = 190, base = 168, top = 22, bw = Math.min(54, (W - 40) / cols.length - 18), step = (W - 40) / cols.length;
+    const sy = v => v / maxCol * (base - top);
+    let svg = `<line x1="10" y1="${base}" x2="${W - 10}" y2="${base}" stroke="var(--line)"/>`;
+    cols.forEach(([lab, list], i) => {
+      const xc = W - 20 - step * i - step / 2;   // RTL: الأقرب يمين
+      let y = base;
+      used.forEach(([k, name, color], j) => {
+        const n = list.filter(r => portKey(r.arrivalPort) === k).length;
+        if (!n) return;
+        const h = sy(n);
+        const isTop = !used.slice(j + 1).some(([k2]) => list.some(r => portKey(r.arrivalPort) === k2));
+        svg += `<rect x="${xc - bw / 2}" y="${y - h + (y < base ? 1 : 0)}" width="${bw}" height="${Math.max(1, h - (y < base ? 2 : 0))}" rx="${isTop ? 4 : 0}" fill="${color}"><title>${lab} — ${name}: ${num(n)} حاوية</title></rect>`;
+        y -= h;
+      });
+      svg += `<text x="${xc}" y="${y - 6}" text-anchor="middle" font-size="12" font-weight="600" fill="var(--ink)">${list.length ? num(list.length) : ''}</text>
+        <text x="${xc}" y="${base + 16}" text-anchor="middle" font-size="11" fill="var(--mute)">${lab}</text>`;
+    });
+    const lateNote = lateSea.length ? `<button type="button" class="dk-late" data-open="rp-sea">⚠ ${num(lateSea.length)} حاوية تعدّى وصولها المتوقع ولم تُفرّغ — حدّث بياناتها</button>` : '';
+    const etaChart = cols.some(([, l]) => l.length)
+      ? lateNote + `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="الحاويات الواصلة حسب الأسبوع">${svg}</svg>
+         <div class="leg">${used.map(([, n, col]) => `<span><i style="background:${col}"></i>${n}</span>`).join('')}</div>`
+      : lateNote + '<p class="rp-empty">ما فيه حاويات قادمة لها وصول متوقع.</p>';
+
+    // --- الاعتمادات ---
+    const lcs = d.lcs || [];
+    const curs = {};
+    lcs.forEach(l => { curs[l.currency] = (curs[l.currency] || 0) + 1; });
+    const cur = Object.keys(curs).sort((a, b) => curs[b] - curs[a])[0] || 'USD';
+    const L = lcs.filter(l => l.currency === cur);
+    const tot = k => L.reduce((t, l) => t + (Number(l[k]) || 0), 0);
+    const amount = tot('amount'), paid = tot('paid'), notDue = tot('notDue'), used2 = tot('used');
+    const avail = L.filter(l => l.state === 'مفتوح').reduce((t, l) => t + Math.max(0, Number(l.available) || 0), 0);
+    const other = Math.max(0, used2 - paid - notDue);
+    const segs = [[paid, '#2a78d6', 'مسدد'], [notDue, '#eb6834', 'على الآجل'], [other, '#9a9cb5', 'محجوز / بانتظار البنك'], [avail, 'var(--line)', 'متاح']];
+    const segTot = segs.reduce((t, sg) => t + sg[0], 0) || 1;
+    const sched = [];
+    L.forEach(l => (l.schedule || []).forEach(p => { if (p.bucket === 'غير مستحقة' && p.dueDate) sched.push(p); }));
+    sched.sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+    const nextDate = sched.length ? sched[0].dueDate : '';
+    const nextAmt = sched.filter(p => p.dueDate === nextDate).reduce((t, p) => t + p.amount, 0);
+    const due7 = sched.filter(p => days(p.dueDate) <= 7).reduce((t, p) => t + p.amount, 0);
+    const lcCard = lcs.length ? `
+      <div class="dk-lcm"><div><small>إجمالي المبالغ</small><b>${short(amount)}</b></div><div><small>على الآجل</small><b>${short(notDue)}</b></div><div><small>المتاح للشحن</small><b>${short(avail)}</b></div></div>
+      <div class="dk-stack">${segs.filter(sg => sg[0] > 0).map(([v, col, n]) => `<span style="width:${v / segTot * 100}%;background:${col}" title="${n}: ${short(v)} ${cur}"></span>`).join('')}</div>
+      <div class="leg">${segs.filter(sg => sg[0] > 0).map(([v, col, n]) => `<span><i style="background:${col}"></i>${n} ${Math.round(v / segTot * 100)}%</span>`).join('')}</div>
+      <div class="sub small" style="margin-top:10px">${nextDate ? `أقرب استحقاق: ${esc(nextDate)} — ${short(nextAmt)} ${esc(cur)}` : 'ما فيه استحقاقات قادمة'}</div>`
+      : '<p class="rp-empty">ما فيه اعتمادات قائمة.</p>';
+
+    // --- تحتاج قرار ---
+    const expiring = lcs.filter(l => l.state === 'مفتوح' && l.available > 0.5 && l.daysToExpiry != null && l.daysToExpiry <= 15).length;
+    const alerts = [
+      ['bad', 'حاويات تجاوزت فترة السماح (أرضيات)', overFree, 'rp-nodecl'],
+      ['bad', 'اعتماد بنكي ينتهي خلال 15 يوم وفيه رصيد', expiring, 'rp-lcs'],
+      ['wait', 'شحنات تأخرت عن الوصول المتوقع', new Set(lateSea.map(r => r.serial)).size, 'rp-sea'],
+      ['wait', 'طلبات جاهزة بدون تعميد أكثر من 7 أيام', readyLate, 'rp-ready'],
+      ['wait', 'دفعات اعتماد تُسدد خلال 7 أيام', due7, 'rp-lcs', short(due7) + ' ' + cur]
+    ].filter(a => a[2] > 0);
+    const alertList = alerts.length ? alerts.map(([cls, t, n, to, label]) =>
+      `<button type="button" class="dk-al ${cls}" data-open="${to}"><span class="ic">!</span>${t}<b>${label || num(n)}</b></button>`).join('')
+      : '<p class="dk-ok">✓ ما فيه شي يحتاج قرار اليوم</p>';
+
+    // --- المستودعات هالشهر ---
+    const wh = (x.whMonth || []).slice(0, 5);
+    const whMax = Math.max(1, ...wh.map(w => w.containers));
+    const whCard = wh.length ? `<div class="dk-hb">${wh.map(w => `<div title="${esc(w.warehouse)}: ${num(w.containers)} حاوية"><span>${esc(w.warehouse)}</span><i><em style="width:${w.containers / whMax * 100}%"></em></i><b>${num(w.containers)}</b></div>`).join('')}</div>`
+      : '<p class="rp-empty">ما استُلمت حاويات هالشهر.</p>';
+
+    // --- أسعار الشحن ---
+    const hist = (d.rates.history || []).filter(r => RATE_DESTS.some(([k]) => r[k]));
+    let rateCard = '<p class="rp-empty">يحتاج تحديثين لأسعار الشحن على الأقل لعرض الرسم.</p>';
+    if (hist.length >= 2) {
+      const vals = hist.flatMap(r => RATE_DESTS.map(([k]) => r[k]).filter(Boolean));
+      const lo = Math.min(...vals), hi = Math.max(...vals), pad = (hi - lo) * 0.15 || hi * 0.1 || 1;
+      const yv = v => 140 - (v - lo + pad) / (hi - lo + 2 * pad) * 120;
+      const xv = i => 300 - i * (280 / (hist.length - 1));   // RTL: الأقدم يمين والأحدث يسار
+      const order = hist.slice().reverse();                      // i=0 الأحدث
+      let g = '<line x1="10" y1="146" x2="310" y2="146" stroke="var(--line)"/>';
+      RATE_DESTS.forEach(([k, name, v]) => {
+        const col = PORT_KEYS.find(p => p[0] === k)[2];
+        const pts = order.map((r, i) => r[k] ? `${xv(order.length - 1 - i).toFixed(1)},${yv(r[k]).toFixed(1)}` : '').filter(Boolean);
+        if (pts.length < 2) return;
+        g += `<polyline fill="none" stroke="${col}" stroke-width="2" points="${pts.join(' ')}"/>`;
+        const last = hist[hist.length - 1];
+        if (last[k]) g += `<circle cx="${xv(hist.length - 1)}" cy="${yv(last[k])}" r="4" fill="${col}" stroke="var(--panel)" stroke-width="2"><title>${name}: ${num(last[k])}</title></circle>`;
+      });
+      g += `<text x="285" y="162" text-anchor="middle" font-size="10.5" fill="var(--mute)">${esc(hist[0].date)}</text><text x="30" y="162" text-anchor="middle" font-size="10.5" fill="var(--mute)">${esc(hist[hist.length - 1].date)}</text>`;
+      const last = hist[hist.length - 1];
+      rateCard = `<svg viewBox="0 0 320 168" width="100%" role="img" aria-label="أسعار الشحن">${g}</svg>
+        <div class="leg">${RATE_DESTS.filter(([k]) => last[k]).map(([k, n]) => `<span><i style="background:${PORT_KEYS.find(p => p[0] === k)[2]}"></i>${n} <b>${num(last[k])}</b></span>`).join('')}</div>`;
+    }
+
+    $('rpSummary').innerHTML = `
+      <div class="dk-k5">${kpis}</div>
+      <div class="card dk-card"><h3>مسار البضاعة الحين</h3><div class="sub small">عدد الحاويات في كل مرحلة — من المصنع لين إرجاع الفارغ. اضغط أي مرحلة لتفاصيلها</div><div class="dk-flow">${flow}</div></div>
+      <div class="dk-c2">
+        <div class="card dk-card viz"><h3>الحاويات الواصلة — الأسابيع الجاية</h3><div class="sub small">حسب الوصول المتوقع، مقسّمة على ميناء الوصول</div>${etaChart}</div>
+        <div class="card dk-card"><h3>تحتاج قرار اليوم</h3><div class="sub small">اضغط أي واحد يفتح التفاصيل</div><div class="dk-alerts">${alertList}</div></div>
+      </div>
+      <div class="dk-c3">
+        <div class="card dk-card"><h3>الاعتمادات البنكية</h3><div class="sub small">${num(L.length)} اعتماد قائم — ${esc(cur)}${Object.keys(curs).length > 1 ? ' (والباقي بعملات ثانية في الجدول)' : ''}</div>${lcCard}</div>
+        <div class="card dk-card"><h3>الحاويات في المستودعات</h3><div class="sub small">المستلمة هالشهر حسب المستودع</div>${whCard}</div>
+        <div class="card dk-card viz"><h3>أسعار الشحن (متوسط)</h3><div class="sub small">${hist.length ? `آخر ${num(hist.length)} تحديثات — كل موانئ التحميل` : 'لم تُسجّل أسعار بعد'}</div>${rateCard}</div>
+      </div>
+      <div class="card dk-card dk-more no-print"><div><h3>التفاصيل الكاملة</h3><div class="sub small">الجداول مطوية تحت — اضغط اللي تحتاجه</div></div>
+        <div class="dk-chips">${[['rp-mfg', 'قيد التصنيع'], ['rp-ready', 'بانتظار التعميد'], ['rp-shipped', 'المشحونة'], ['rp-sea', 'في البحر'], ['rp-nodecl', 'بدون بيان'], ['rp-yard', 'ساحات المخلص'], ['rp-recv', 'المستلمة'], ['rp-wh', 'حسب المستودع'], ['rp-lcs', 'الاعتمادات'], ['rp-rates', 'أسعار الشحن']].map(([id, n]) => `<button type="button" data-open="${id}">${n} ◀</button>`).join('')}</div></div>`;
+    $('rpToc').innerHTML = '';
+  }
+
   function render(d) {
     const dt = new Date(d.today + 'T00:00:00');
     $('rpDate').textContent = `${DAYS[dt.getDay()]} ${d.today} — وضع البضائع والحاويات حتى تاريخه`;
 
-    const s = d.summary, c = d.containers;
-    const cq = list => num(list.reduce((t, r) => t + r.qty, 0));
-    const tiles = [
-      ['t-mfg', 'قيد التصنيع', num(s.mfg.containers), `حاوية — ${num(s.mfg.qty)} قطعة`, 'rp-mfg'],
-      ['t-ready', 'بانتظار تعميد الشحن', num(s.ready.containers), `حاوية — ${num(s.ready.qty)} قطعة`, 'rp-ready'],
-      ['t-ship', 'مشحونة (لم يكتمل استلامها)', num(s.shipped.containers), `حاوية — ${num(s.shipped.invoices)} فاتورة`, 'rp-shipped'],
-      ['t-sea', 'في البحر', num(c.atSea.length), `حاوية — ${cq(c.atSea)} قطعة`, 'rp-sea'],
-      ['t-nodecl', 'وصلت بدون بيان جمركي', num(c.noDecl.length), `حاوية — ${cq(c.noDecl)} قطعة`, 'rp-nodecl'],
-      ['t-yard', 'في ساحات المخلص (بيان وغير مستلمة)', num(c.inYard.length), `حاوية — ${cq(c.inYard)} قطعة`, 'rp-yard'],
-      ['t-recv', 'مستلمة (لم يُرجع الفارغ)', num(c.received.length), `حاوية — ${cq(c.received)} قطعة`, 'rp-recv'],
-      ['t-ret', 'أُعيد فارغها', num(c.returned), 'حاوية', 'rp-wh']
-    ];
-    $('rpSummary').innerHTML = tiles.map(t => `<div class="rp-tile ${t[0]}"><small>${t[1]}</small><b>${t[2]}</b><span>${t[3]}</span></div>`).join('');
-    $('rpToc').innerHTML = tiles.slice(0, 7).map(t => `<a href="#" data-to="${t[4]}">${t[1]}</a>`).join('') +
-      '<a href="#" data-to="rp-wh">حسب المستودع</a><a href="#" data-to="rp-lcs">الاعتمادات البنكية</a><a href="#" data-to="rp-rates">أسعار الشحن</a>';
+    const c = d.containers;
+    renderDash(d);
 
     const t0 = d.today;
     const mfg = groupGoods(d.goods.mfg), ready = groupGoods(d.goods.ready), shipped = groupGoods(d.goods.shipped);
