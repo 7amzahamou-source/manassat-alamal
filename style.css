@@ -890,3 +890,31 @@ body.single-page .brandmark.top-logo { display: flex; }
   .brandmark.top-logo { display: flex; }
 }
 @media (max-width: 960px) { .auth-brand .bm-auth { display: none; } }
+
+/* ===== البلاغات ===== */
+.nbadge { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px;
+  background: var(--red); color: #fff; font-size: 11px; font-weight: 700; margin-inline-start: 6px; line-height: 1; }
+.side-nav button .nbadge { margin-inline-start: auto; }
+.tk-list { display: grid; gap: 10px; }
+.tk-card { position: relative; display: block; width: 100%; text-align: right; padding: 14px 16px; cursor: pointer; border: 1px solid var(--line); font: inherit; color: inherit; }
+.tk-card:hover { border-color: var(--acc); }
+.tk-card.fresh { border-color: var(--red); }
+.tk-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+.tk-top b { font-size: 15px; }
+.tk-sub { color: var(--mute); font-size: 12.5px; margin-top: 4px; }
+.tk-last { margin-top: 8px; font-size: 13.5px; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tk-dot { position: absolute; top: 12px; left: 12px; width: 9px; height: 9px; border-radius: 50%; background: var(--red); }
+.tk-dot.in { position: static; display: inline-block; margin-inline-end: 6px; vertical-align: middle; }
+.tk-empty { padding: 24px; text-align: center; }
+tr.tk-unread td > b { font-weight: 700; }
+.tk-desc { white-space: pre-wrap; background: var(--panel-2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin-top: 14px; line-height: 1.8; }
+.tk-thread { display: flex; flex-direction: column; gap: 10px; max-height: 340px; overflow: auto; padding: 4px 2px 10px; }
+.tk-msg { max-width: 82%; border-radius: 14px; padding: 9px 13px; border: 1px solid var(--line); }
+.tk-msg.user { align-self: flex-start; background: var(--panel); }
+.tk-msg.admin { align-self: flex-end; background: var(--acc-soft); border-color: transparent; }
+.tk-msg-h { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.tk-msg-h small { color: var(--mute); margin-inline-start: auto; font-size: 11.5px; }
+.tk-msg-b { white-space: pre-wrap; margin-top: 4px; line-height: 1.7; font-size: 14px; }
+#ticketDialog textarea, #newTicketDialog textarea { width: 100%; resize: vertical; font: inherit; border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: var(--panel); color: var(--ink); }
+.wf-help { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 18px; margin-top: 16px; }
+.wf-help .btn { margin-inline-start: auto; }

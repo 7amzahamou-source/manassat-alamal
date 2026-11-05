@@ -9,7 +9,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@300;400;500;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="style.css?v=33">
+  <link rel="stylesheet" href="style.css?v=34">
 </head>
 <body>
 
@@ -61,6 +61,10 @@
         </button>
         <div class="brandmark top-logo"><svg class="bm-ico" viewBox="0 0 64 64" aria-hidden="true"><rect width="64" height="64" rx="14" fill="currentColor" class="bm-bg"/><g fill="none" stroke="#fff" stroke-width="3.2" stroke-linejoin="round"><rect x="12" y="30" width="18" height="14" rx="1.5"/><rect x="34" y="30" width="18" height="14" rx="1.5"/><rect x="23" y="14" width="18" height="14" rx="1.5"/></g><path d="M10 50h44" stroke="#e5322a" stroke-width="3.2" stroke-linecap="round"/></svg><span><b>سلاسل الإمداد</b></span></div>
         <div class="greet"><b id="greetText"></b><small id="todayText"></small></div>
+        <button id="ticketsBtn" class="btn ghost" title="البلاغات">
+          <svg viewBox="0 0 24 24" class="ic"><path d="M4 5h16v11H9l-5 4z"/><path d="M12 8v4M12 14.5v.5"/></svg>
+          <span>البلاغات</span><b id="ticketsBadge" class="nbadge hide"></b>
+        </button>
         <button id="workflowBtn" class="btn ghost" title="خريطة سير العمل">
           <svg viewBox="0 0 24 24" class="ic"><circle cx="5" cy="6" r="2.5"/><circle cx="19" cy="6" r="2.5"/><circle cx="12" cy="18" r="2.5"/><path d="M7.5 6h9M17.5 8L13.5 16M6.5 8l4 8"/></svg>
           <span>سير العمل</span>
@@ -199,6 +203,49 @@
         </section>
 
         <!-- ===== صفحة: خريطة سير العمل (للجميع) ===== -->
+        <!-- ===== صفحة: بلاغاتي (لكل موظف) ===== -->
+        <section id="page-myTickets" class="page hide">
+          <div class="page-head">
+            <div>
+              <h1>بلاغاتي</h1>
+              <p class="sub">واجهتك مشكلة أو عندك طلب؟ ارفعه هنا ويوصل للمدير، وتتابع الرد عليه من نفس الصفحة.</p>
+            </div>
+            <div class="actions">
+              <button id="newTicketBtn" class="btn primary">+ بلاغ جديد</button>
+            </div>
+          </div>
+          <div id="myTicketList" class="tk-list"></div>
+        </section>
+
+        <!-- ===== صفحة: البلاغات (للمدير فقط) ===== -->
+        <section id="page-tickets" class="page hide">
+          <div class="page-head">
+            <div>
+              <h1>البلاغات</h1>
+              <p class="sub">مشاكل وطلبات الموظفين. رد أو وجّه الموظف، أو تولّ المشكلة وحلها.</p>
+            </div>
+            <div class="actions"><button id="tkRefreshBtn" class="btn">تحديث</button></div>
+          </div>
+          <div id="tkStats" class="stats five"></div>
+          <div class="card">
+            <div class="toolbar">
+              <input id="tkSearch" placeholder="ابحث برقم البلاغ أو العنوان أو الموظف أو الرقم المرتبط">
+              <select id="tkFilterStatus">
+                <option value="open">المفتوحة</option>
+                <option value="">كل الحالات</option>
+                <option>جديد</option><option>قيد المعالجة</option><option>بانتظار الموظف</option><option>معاد فتحه</option><option>محلولة</option>
+              </select>
+              <select id="tkFilterType"><option value="">كل الأنواع</option></select>
+            </div>
+            <div class="table-wrap">
+              <table class="cx"><colgroup><col style="width:13%"><col style="width:18%"><col style="width:33%"><col style="width:10%"><col style="width:13%"><col style="width:13%"></colgroup>
+                <thead><tr><th>البلاغ / التاريخ</th><th>الموظف / القسم</th><th>العنوان / النوع</th><th>الأولوية</th><th>آخر تحديث</th><th>الحالة</th></tr></thead>
+                <tbody id="tkBody"></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
         <section id="page-workflow" class="page hide">
           <div class="page-head">
             <div>
@@ -236,6 +283,10 @@
               <span><i class="wf-dot lc"></i> عند الدفع باعتماد بنكي (L/C) فقط</span>
             </div>
             <div id="wfMap" class="wf-map"></div>
+          </div>
+                  <div class="card wf-help">
+            <b>واجهتك مشكلة أو عندك طلب؟</b><span class="sub">ارفع بلاغ ويوصل للمدير، وتتابع الرد من «البلاغات» في الشريط العلوي.</span>
+            <button type="button" class="btn primary" onclick="goTo(isAdmin() ? 'tickets' : 'myTickets')">ارفع بلاغ</button>
           </div>
         </section>
 
@@ -1143,6 +1194,60 @@
     </datalist>
   </dialog>
 
+  <!-- ===== نافذة: بلاغ جديد ===== -->
+  <dialog id="newTicketDialog">
+    <form id="newTicketForm">
+      <div class="dlg-head"><h2>بلاغ جديد</h2><button type="button" class="btn" data-close>إغلاق</button></div>
+      <div class="dlg-body">
+        <div class="grid">
+          <div class="wide"><label for="nt_title">العنوان *</label><input id="nt_title" maxlength="120" required placeholder="مثال: ما أقدر أعمّد شحنة INV-123"></div>
+          <div>
+            <label for="nt_type">النوع</label>
+            <select id="nt_type"><option>مشكلة في المنصة</option><option>مشكلة في شحنة أو حاوية</option><option>طلب صلاحية</option><option>اقتراح</option><option>أخرى</option></select>
+          </div>
+          <div>
+            <label for="nt_priority">الأولوية</label>
+            <select id="nt_priority"><option>عادية</option><option>مهمة</option><option>عاجلة</option></select>
+          </div>
+          <div class="wide"><label for="nt_ref">رقم مرتبط (اختياري)</label><input id="nt_ref" dir="ltr" placeholder="أمر شراء / فاتورة / تسلسل / حاوية"></div>
+          <div class="wide"><label for="nt_description">الوصف *</label><textarea id="nt_description" rows="6" maxlength="3000" required placeholder="وش صار؟ وش كنت تحاول تسوي؟ وش رسالة الخطأ إن وجدت؟"></textarea></div>
+        </div>
+      </div>
+      <div class="dlg-foot">
+        <div id="ntError" class="error"></div>
+        <button type="submit" id="ntSaveBtn" class="btn primary">إرسال البلاغ</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- ===== نافذة: تفاصيل البلاغ والمحادثة ===== -->
+  <dialog id="ticketDialog">
+    <form id="ticketForm">
+      <div class="dlg-head">
+        <h2 id="tdTitle"></h2>
+        <span id="tdStatus"></span>
+        <button type="button" class="btn" data-close>إغلاق</button>
+      </div>
+      <div class="dlg-body">
+        <div id="tdMeta" class="po-chips"></div>
+        <div id="tdDesc" class="tk-desc"></div>
+        <h3 class="fh">المحادثة</h3>
+        <div id="tdThread" class="tk-thread"></div>
+        <div id="tdReplyWrap">
+          <label for="tdText" id="tdTextLabel">ردك</label>
+          <textarea id="tdText" rows="3" maxlength="3000"></textarea>
+        </div>
+      </div>
+      <div class="dlg-foot">
+        <div id="tdError" class="error"></div>
+        <button type="button" id="tdReopenBtn" class="btn">إعادة فتح</button>
+        <button type="button" id="tdTakeBtn" class="btn">أنا أتولاها</button>
+        <button type="button" id="tdResolveBtn" class="btn">✓ تم الحل</button>
+        <button type="button" id="tdReplyBtn" class="btn primary">إرسال الرد</button>
+      </div>
+    </form>
+  </dialog>
+
   <dialog id="fileDialog">
     <form id="fileForm">
       <div class="dlg-head">
@@ -1247,19 +1352,20 @@
   <div id="toast" class="toast" role="status"></div>
 
   <script src="config.js"></script>
-  <script src="api.js?v=33"></script>
-  <script src="app.js?v=33"></script>
-  <script src="dashboard.js?v=33"></script>
-  <script src="report.js?v=33"></script>
-  <script src="orders.js?v=33"></script>
-  <script src="models.js?v=33"></script>
-  <script src="shipping.js?v=33"></script>
-  <script src="containers.js?v=33"></script>
-  <script src="files.js?v=33"></script>
-  <script src="rates.js?v=33"></script>
-  <script src="lcs.js?v=33"></script>
-  <script src="workflow.js?v=33"></script>
-  <script src="users.js?v=33"></script>
-  <script src="import.js?v=33"></script>
+  <script src="api.js?v=34"></script>
+  <script src="app.js?v=34"></script>
+  <script src="dashboard.js?v=34"></script>
+  <script src="report.js?v=34"></script>
+  <script src="orders.js?v=34"></script>
+  <script src="models.js?v=34"></script>
+  <script src="shipping.js?v=34"></script>
+  <script src="containers.js?v=34"></script>
+  <script src="files.js?v=34"></script>
+  <script src="rates.js?v=34"></script>
+  <script src="lcs.js?v=34"></script>
+  <script src="workflow.js?v=34"></script>
+  <script src="users.js?v=34"></script>
+  <script src="import.js?v=34"></script>
+  <script src="tickets.js?v=34"></script>
 </body>
 </html>

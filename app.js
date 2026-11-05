@@ -27,6 +27,7 @@ const ICONS = {
   lcs: '<svg viewBox="0 0 24 24"><path d="M3 10l9-6 9 6"/><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 21h18"/></svg>',
   rates: '<svg viewBox="0 0 24 24"><path d="M12 2v20M17 6H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>',
   importx: '<svg viewBox="0 0 24 24"><path d="M4 4h10l6 6v10H4z"/><path d="M14 4v6h6M12 12v6M9 15l3 3 3-3"/></svg>',
+  tickets: '<svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/><path d="M12 8v4M12 14.5v.5"/></svg>',
   users: '<svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2 21c0-3.5 3-5.5 7-5.5s7 2 7 5.5"/><path d="M16 4a3.5 3.5 0 0 1 0 7M22 21c0-3-2-5-5-5.4"/></svg>'
 };
 
@@ -142,7 +143,7 @@ const NAV_GROUPS = [
   ['الشحن', ['shipments', 'shipped', 'rates']],
   ['الحاويات والتخليص', ['containers', 'receive', 'files']],
   ['المالية', ['lcs']],
-  ['الإدارة', ['users', 'import']]
+  ['الإدارة', ['tickets', 'users', 'import']]
 ];
 /** موانئ الوصول في أسعار الشحن (المفتاح، الاسم، متغيّر لون الخط في الرسم) */
 const RATE_DESTS = [['dmm', 'الدمام', '--s1'], ['jed', 'جدة', '--s2'], ['rbg', 'رابغ', '--s3']];
@@ -175,10 +176,11 @@ function buildNav() {
   showScreen('appScreen');
 
   $('noAccess').classList.toggle('hide', list.length > 0);
-  if (!list.length) return sessionStorage.getItem('page') === 'workflow' && goTo('workflow');
-
+  if (typeof refreshTicketBadges === 'function') refreshTicketBadges();
   const saved = sessionStorage.getItem('page');
-  goTo(list.some(p => p.key === saved) || saved === 'workflow' ? saved : list[0].key);
+  const anywhere = ['workflow', 'myTickets'];   // صفحات مفتوحة للجميع من الشريط العلوي
+  if (!list.length) return anywhere.includes(saved) && goTo(saved);
+  goTo(list.some(p => p.key === saved) || anywhere.includes(saved) ? saved : list[0].key);
 }
 
 function goTo(key) {
