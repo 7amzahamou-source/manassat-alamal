@@ -168,6 +168,9 @@ function buildNav() {
   const grouped = NAV_GROUPS.map(([title, keys]) => [title, list.filter(p => keys.includes(p.key))]);
   const other = list.filter(p => !NAV_GROUPS.some(([, keys]) => keys.includes(p.key)));
   if (other.length) grouped.push(['أخرى', other]);
+  // «بلاغاتي» تظهر لكل موظف في القائمة (المدير عنده «البلاغات»)
+  const myTk = PAGES.find(p => p.key === 'myTickets');
+  if (myTk && !isAdmin()) grouped.push(['المساعدة', [myTk]]);
   $('sideNav').innerHTML = grouped.filter(([, pages]) => pages.length).map(([title, pages]) =>
     `<div class="nav-group">${title}</div>` + pages.map(p =>
       `<button type="button" data-page="${p.key}">${p.icon || ''}<span>${esc(p.title)}</span></button>`).join('')).join('');

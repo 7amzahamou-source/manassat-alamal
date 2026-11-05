@@ -918,3 +918,9 @@ tr.tk-unread td > b { font-weight: 700; }
 #ticketDialog textarea, #newTicketDialog textarea { width: 100%; resize: vertical; font: inherit; border: 1px solid var(--line); border-radius: 10px; padding: 10px; background: var(--panel); color: var(--ink); }
 .wf-help { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px 18px; margin-top: 16px; }
 .wf-help .btn { margin-inline-start: auto; }
+
+/* زر البلاغات في الشريط العلوي: واضح للموظف */
+.btn.tk-top-btn { border: 1px solid var(--acc); color: var(--acc); background: var(--acc-soft); }
+.btn.tk-top-btn:hover { background: var(--acc); color: #fff; }
+.btn.tk-top-btn .ic { stroke: currentColor; }
+@media (max-width: 600px) { .btn.tk-top-btn span { display: none; } }

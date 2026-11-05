@@ -21,18 +21,20 @@
   /* ===== الأرقام الصغيرة (للمدير: غير المقروءة، للموظف: ردود جديدة) ===== */
 
   window.refreshTicketBadges = async function () {
+    $('ticketsBtnText').textContent = isAdmin() ? 'البلاغات' : 'ارفع بلاغ';
     try {
       const r = await API.ticketBadges();
       const n = isAdmin() ? r.admin : r.mine;
       $('ticketsBadge').textContent = n;
       $('ticketsBadge').classList.toggle('hide', !n);
-      const nav = document.querySelector('#sideNav [data-page="tickets"]');
-      if (nav) {
+      [['tickets', r.admin], ['myTickets', r.mine]].forEach(([key, count]) => {
+        const nav = document.querySelector(`#sideNav [data-page="${key}"]`);
+        if (!nav) return;
         let b = nav.querySelector('.nbadge');
         if (!b) { b = document.createElement('b'); b.className = 'nbadge'; nav.appendChild(b); }
-        b.textContent = r.admin;
-        b.classList.toggle('hide', !r.admin);
-      }
+        b.textContent = count;
+        b.classList.toggle('hide', !count);
+      });
     } catch (e) { /* الأرقام اختيارية */ }
   };
   setInterval(() => { if (currentUser && !document.hidden) refreshTicketBadges(); }, 90000);
